@@ -1,0 +1,7 @@
+---
+- name: Configure Rocky Linux template
+  hosts: all
+  become: true
+  roles:
+    - linux-common
+    - qemu-guest-agent

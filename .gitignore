@@ -1,0 +1,46 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.lock.hcl
+*.auto.tfvars
+terraform.tfvars
+
+# Packer
+packer_cache/
+*.pkrvars.hcl
+!*.pkrvars.hcl.example
+*.box
+
+# Ansible
+*.retry
+ansible/inventory/hosts.ini
+!ansible/inventory/hosts.ini.example
+
+# Secrets / credentials
+*.pem
+*.key
+id_rsa*
+.env
+.env.*
+secrets.yml
+vault_pass.txt
+
+# Per-build throwaway SSH keypairs (generate locally, see README)
+packer/*/files/ansible_build_key
+packer/*/files/ansible_build_key.pub
+
+# Python virtualenv
+.venv/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/

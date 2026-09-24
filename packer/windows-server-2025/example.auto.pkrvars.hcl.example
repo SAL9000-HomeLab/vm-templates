@@ -1,0 +1,16 @@
+# Copy to example.auto.pkrvars.hcl and fill in for your environment.
+# Proxmox URL/API token come from PROXMOX_URL / PROXMOX_API_TOKEN_ID /
+# PROXMOX_API_TOKEN_SECRET environment variables — no need to set them here.
+# The build-time Administrator password has no default; export it rather
+# than writing it here:  export PKR_VAR_winrm_password='...'
+
+proxmox_node        = "pve1"
+iso_file            = "local:iso/SERVER_EVAL_x64FRE_en-us.iso"
+virtio_win_iso_file = "local:iso/virtio-win.iso"
+vm_storage_pool     = "local-zfs"
+network_bridge      = "vnet30"
+
+core_template_id      = 9002
+core_template_name    = "tpl-windows-server-2025-core"
+desktop_template_id   = 9003
+desktop_template_name = "tpl-windows-server-2025-desktop"

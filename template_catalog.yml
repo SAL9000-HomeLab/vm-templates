@@ -1,0 +1,14 @@
+# Canonical template catalog for the image-builder repo.
+# The template repo owns template identity. The deploy repo should reference
+# these exact names when selecting a template to clone.
+template_catalog:
+  rocky9: tpl-rocky-9
+  rocky10: tpl-rocky-10
+  ubuntu2404: tpl-ubuntu-2404
+  windows2025_core: tpl-windows-server-2025-core
+  windows2025_desktop: tpl-windows-server-2025-desktop
+
+# Contract:
+# - template repo creates and manages these template names
+# - deploy repo clones a named template and sets runtime instance values separately
+# - instance-specific data should live in provision_vms, not in the template catalog

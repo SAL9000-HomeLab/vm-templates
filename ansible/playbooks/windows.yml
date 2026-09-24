@@ -1,0 +1,5 @@
+---
+- name: Configure Windows Server template
+  hosts: all
+  roles:
+    - windows-common

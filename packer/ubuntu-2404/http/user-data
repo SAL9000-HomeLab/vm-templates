@@ -1,0 +1,41 @@
+#cloud-config
+autoinstall:
+  version: 1
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+  identity:
+    hostname: ubuntu-2404-builder
+    username: ansible
+    # Build-time only password (hash of "packer", kept for console debugging
+    # of a stuck install — Packer itself logs in with files/ansible_build_key).
+    # The final shell provisioner locks this password, removes the build key,
+    # and disables SSH password auth, so neither works on the template or its
+    # clones. Regenerate with: mkpasswd -m sha-512
+    password: "$6$1XLdNihuOPgEJ.4h$vNi26cKU0GVlqpa5.jwa8C5j/c0k7/ZHEOUepr0sSb4CdWFSnWud2GGi4nGyZ4/IuyNwE3y3o6fdTfs5REdjc1"
+  ssh:
+    install-server: true
+    allow-pw: true
+    # Public half of files/ansible_build_key — regenerate both with
+    # `ssh-keygen -t ed25519 -N "" -f files/ansible_build_key` and paste the
+    # resulting files/ansible_build_key.pub contents in below. See README.
+    # Must live here under `ssh.authorized-keys` (applied by subiquity
+    # directly to the `identity` user during install), not under the
+    # generic `user-data.ssh_authorized_keys` cloud-init passthrough — that
+    # targets cloud-init's "default user" concept, which isn't reliably the
+    # same account.
+    authorized-keys:
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGZJImxC56Sl+IwO9gHBYpmx8XFxNYWhXwiMHLJfp8K2 vm-templates ubuntu-2404 packer build (throwaway, build-time only)"
+  storage:
+    layout:
+      name: direct
+  package_update: true
+  package_upgrade: true
+  packages:
+    - qemu-guest-agent
+    - openssh-server
+  late-commands:
+    - echo 'ansible ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/ansible
+    - curtin in-target --target=/target -- systemctl enable qemu-guest-agent
+  user-data:
+    disable_root: true

@@ -1,0 +1,10 @@
+# Copy to example.auto.pkrvars.hcl and fill in for your environment.
+# Proxmox URL/API token come from PROXMOX_URL / PROXMOX_API_TOKEN_ID /
+# PROXMOX_API_TOKEN_SECRET environment variables — no need to set them here.
+
+proxmox_node     = "pve1"
+iso_file         = "local:iso/ubuntu-24.04.2-live-server-amd64.iso"
+vm_storage_pool  = "local-zfs"
+network_bridge   = "vnet30"
+template_id      = 9000
+template_name    = "tpl-ubuntu-2404"

@@ -1,0 +1,40 @@
+---
+- name: Set timezone to UTC
+  ansible.windows.win_timezone:
+    timezone: UTC
+
+- name: Enable ICMP echo request (ping) through Windows Firewall
+  community.windows.win_firewall_rule:
+    name: Allow ICMPv4
+    enabled: true
+    state: present
+    protocol: icmpv4
+    action: allow
+    direction: in
+
+# The virtio-win ISO is only attached during the Packer build (see
+# additional_iso_files in windows-server-2025.pkr.hcl) and its drive letter
+# can vary; find the installer rather than hardcoding a path or MSI
+# product code.
+- name: Locate the QEMU guest agent installer on the virtio-win media
+  ansible.windows.win_find:
+    paths: ['C:\', 'D:\', 'E:\', 'F:\']
+    patterns: ['qemu-ga-x86_64.msi']
+    recurse: true
+    depth: 3
+  register: qemu_ga_installer
+
+- name: Install QEMU guest agent
+  ansible.windows.win_package:
+    path: "{{ qemu_ga_installer.files[0].path }}"
+    state: present
+    arguments: /qn
+  when: qemu_ga_installer.matched > 0
+
+- name: Enable Remote Desktop
+  ansible.windows.win_shell: |
+    Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
+    Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+
+- name: Set power plan to High Performance
+  ansible.windows.win_shell: powercfg /setactive SCHEME_MIN
