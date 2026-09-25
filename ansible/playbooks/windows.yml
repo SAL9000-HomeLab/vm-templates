@@ -2,4 +2,4 @@
 - name: Configure Windows Server template
   hosts: all
   roles:
-    - windows-common
+    - windows_common

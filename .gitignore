@@ -44,3 +44,6 @@ packer/*/files/ansible_build_key.pub
 .DS_Store
 *.swp
 .idea/
+
+# ansible-lint cache
+.ansible/
