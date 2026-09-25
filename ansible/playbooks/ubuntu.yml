@@ -3,5 +3,5 @@
   hosts: all
   become: true
   roles:
-    - linux-common
-    - qemu-guest-agent
+    - linux_common
+    - qemu_guest_agent

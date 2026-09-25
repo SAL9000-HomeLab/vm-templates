@@ -1,3 +1,4 @@
+---
 # Canonical template catalog for the image-builder repo.
 # The template repo owns template identity. The deploy repo should reference
 # these exact names when selecting a template to clone.

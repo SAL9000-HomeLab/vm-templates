@@ -1,0 +1,7 @@
+---
+# ansible-lint configuration (run by CI via the shared ansible-ci workflow).
+# Playbooks and roles live under ansible/; ansible/ansible.cfg sets roles_path.
+exclude_paths:
+  - .venv/
+  - .github/
+  - "**/.terraform/"

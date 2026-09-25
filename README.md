@@ -36,7 +36,7 @@ template name from this catalog and then inject its own VM-specific values durin
    passing per-VM identity (hostname, IP, DNS, SSH keys) through Proxmox's
    built-in cloud-init support.
 
-```
+```text
 packer/       one directory per OS, produces a Proxmox template
 ansible/      playbooks + roles run by Packer during the build
 cloud-init/   optional custom cloud-init snippets for advanced per-VM config
@@ -76,10 +76,12 @@ networking, which shares your Windows host's real network directly:
 
 1. Create or edit `.wslconfig` in your Windows user profile
    (`%USERPROFILE%\.wslconfig`) with:
+
    ```ini
    [wsl2]
    networkingMode=mirrored
    ```
+
 2. From PowerShell (not from inside WSL — this restarts the WSL VM):
    `wsl --shutdown`
 3. Reopen your WSL terminal and confirm `ip addr show eth0` now shows your
@@ -139,6 +141,7 @@ which has no default and is templated into `Autounattend.xml` at build time:
 ```sh
 export PKR_VAR_winrm_password='...'
 ```
+
 Terraform reads them via the `proxmox_api_token_id` / `proxmox_api_token_secret`
 provider variables (see `terraform/environments/example/terraform.tfvars.example`).
 
@@ -162,6 +165,7 @@ cat files/ansible_build_key.pub
 ```
 
 Then paste the printed public key over the existing one in:
+
 - **rocky-9** / **rocky-10**: the `sshkey --username=ansible "..."` line in
   `http/ks.cfg` (a separate kickstart command, not a `user` option —
   pykickstart rejects `--sshkey` on the `user` line with `unrecognized
@@ -174,7 +178,7 @@ Then paste the printed public key over the existing one in:
 The key only grants access to the VM while it's being built: each Linux
 build's final shell provisioner removes it from `authorized_keys`, locks the
 build account's password, and drops in `PasswordAuthentication no`. Committing
-the *public* half is therefore not a secret exposure — but the private key
+the _public_ half is therefore not a secret exposure — but the private key
 stays local and gitignored regardless.
 
 Because the template ships with no usable password or key, access to cloned
@@ -210,3 +214,44 @@ terraform apply
 Copy the closest existing `packer/<os>` directory as a starting point, add a
 matching Ansible playbook under `ansible/playbooks/`, and reference the new
 template name from `terraform/modules/proxmox-vm` consumers.
+
+## Development and CI
+
+Two workflows call reusable workflows from
+[`SAL9000-HomeLab/shared-actions`](https://github.com/SAL9000-HomeLab/shared-actions):
+
+- **Ansible CI** (`.github/workflows/ansible-ci.yml`), on pushes to `main` and every pull request:
+  `yamllint`, then `ansible-lint` using [`.ansible-lint`](.ansible-lint). ansible-lint also
+  syntax-checks the playbooks in `ansible/playbooks/`. The workflow's own syntax-check step only
+  looks for playbooks at the repository root, and there are none here.
+- **Linting Validation** (`.github/workflows/ci.yml`), on pull requests to `main`:
+  - Markdown lint (`markdownlint-cli2`) using [`.markdownlint.json`](.markdownlint.json):
+    120-column lines (code blocks and tables exempt), `_emphasis_` and `**strong**`.
+  - Link check (linkspector) using [`.linkspector.yml`](.linkspector.yml). Findings are
+    reported on the pull request. Links to this org's GitHub repos are skipped.
+  - `yamllint` again, standalone.
+
+Both YAML checks read [`.yamllint.yml`](.yamllint.yml): the default rules with 120-column
+lines (matching the editor ruler in `.vscode/settings.json`), with truthy checks skipped for
+GitHub workflows (`on:`). The file must keep the `.yml` name, because the shared `lint-yaml`
+workflow loads it by that exact path.
+
+The root [`ansible.cfg`](ansible.cfg) only sets `roles_path = ansible/roles`, so ansible-lint
+(run from the repository root) can resolve the roles. Packer sets `ANSIBLE_ROLES_PATH` itself,
+and running `ansible-playbook` from `ansible/` uses `ansible/ansible.cfg`.
+
+Run the same checks locally before opening a pull request:
+
+```sh
+python3 -m venv .venv && . .venv/bin/activate
+pip install "yamllint>=1.30" "ansible>=2.15" "ansible-lint>=6"
+ansible-galaxy collection install -r ansible/requirements.yml
+yamllint -f parsable .
+ansible-lint .
+npx markdownlint-cli2 "**/*.md" "#.venv" "#**/.terraform"
+```
+
+Project words for the VS Code spell checker live in `.vscode/cspell.json`.
+
+Add a line under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md) with each change. Pushing a
+`vX.Y.Z` tag publishes that version's section as a GitHub release.
