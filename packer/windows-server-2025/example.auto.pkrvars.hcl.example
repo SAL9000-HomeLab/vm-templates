@@ -5,9 +5,13 @@
 # than writing it here:  export PKR_VAR_winrm_password='...'
 
 proxmox_node        = "pve1"
-iso_file            = "local:iso/SERVER_EVAL_x64FRE_en-us.iso"
+# Defaults expect volume-licence media (installs with the public GVLK). For
+# evaluation media also set: product_key = "", and core_image_name /
+# desktop_image_name with " Evaluation" appended to the edition name.
+iso_file            = "local:iso/SW_DVD9_Win_Server_STD_CORE_2025_64Bit_English_VL.iso"
 virtio_win_iso_file = "local:iso/virtio-win.iso"
 vm_storage_pool     = "local-zfs"
+efi_storage_pool    = "local-zfs"
 network_bridge      = "vnet30"
 
 core_template_id      = 9002

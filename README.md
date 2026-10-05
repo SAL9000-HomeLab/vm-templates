@@ -48,8 +48,13 @@ terraform/    optional helper resources; the deploy repo remains the runtime orc
 - Packer >= 1.10 with the `proxmox` plugin (`packer init` installs it from
   each build's `required_plugins` block)
 - Terraform >= 1.7
-- Ansible >= 2.15, plus `pywinrm` (`pip install pywinrm`) for the Windows
-  playbook
+- Ansible >= 2.15, plus `pywinrm` for the Windows playbook, installed into
+  the same Python that runs Ansible (`ansible --version` shows it). On
+  RHEL/Rocky, where `pywinrm` isn't packaged and Ansible uses the system
+  `/usr/bin/python3`, install it per-user with
+  `python3 -m pip install --user pywinrm`; with a pipx-installed Ansible,
+  use `pipx inject ansible-core pywinrm`. Without it, the Windows build
+  fails at `Gathering Facts` with `No module named 'winrm'`.
 - The Ansible collections in `ansible/requirements.yml`
   (`community.general`, `ansible.windows`, `community.windows`) — install
   with `ansible-galaxy collection install -r ansible/requirements.yml`.

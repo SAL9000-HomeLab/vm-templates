@@ -44,6 +44,11 @@ variable "vm_storage_pool" {
   description = "Storage pool for the built VM's disks"
 }
 
+variable "efi_storage_pool" {
+  type        = string
+  description = "Storage pool for the OVMF EFI vars disk and the TPM 2.0 state disk"
+}
+
 variable "network_bridge" {
   type        = string
   default     = "vnet30"
@@ -58,6 +63,24 @@ variable "core_template_name" {
 variable "core_template_id" {
   type        = number
   description = "Proxmox VMID for the resulting Server Core template"
+}
+
+variable "core_image_name" {
+  type        = string
+  default     = "Windows Server 2025 Standard"
+  description = "install.wim image name for Server Core (volume-licence media; eval media appends \" Evaluation\"). List with: dism /Get-WimInfo /WimFile:D:\\sources\\install.wim"
+}
+
+variable "desktop_image_name" {
+  type        = string
+  default     = "Windows Server 2025 Standard (Desktop Experience)"
+  description = "install.wim image name for Desktop Experience (volume-licence media; eval media appends \" Evaluation\")"
+}
+
+variable "product_key" {
+  type        = string
+  default     = "TVRH6-WHNXV-R9WG3-9XRFY-MY832"
+  description = "Setup product key. Defaults to Microsoft's public KMS client (GVLK) key for Server 2025 Standard, which volume-licence media needs to install unattended; activation happens later against KMS/ADBA. Set to \"\" for evaluation media."
 }
 
 variable "desktop_template_name" {

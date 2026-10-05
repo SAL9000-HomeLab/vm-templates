@@ -5,18 +5,25 @@
   differ only in ComputerName and the ImageInstall/OSImage/InstallFrom
   edition name. Adjust before use:
 
-  - <ImageInstall>/<InstallFrom>/<MetaData>/<Value>: must match an edition
-    name in the target ISO's install.wim. Check with:
-      dism /Get-WimInfo /WimFile:D:\sources\install.wim
-  - <DriverPaths>: assumes the virtio-win ISO is attached as E:\ during
-    Windows PE. If Proxmox/Packer mounts it elsewhere, adjust the paths
-    (or point at the whole E:\ root — Setup will search recursively).
+  - <ImageInstall>/<InstallFrom>/<MetaData>/<Value>: filled from the
+    core_image_name / desktop_image_name Packer variables; must match an
+    edition name in the ISO's install.wim. Defaults target volume-licence
+    media; eval media appends " Evaluation" to each name.
+    Check with: dism /Get-WimInfo /WimFile:D:\sources\install.wim
+  - <DriverPaths> (windowsPE only): the three build CDs are on SATA, whose
+    drive letters in Windows PE aren't fixed, so every driver path is listed
+    for D:-G:; the windowsPE pass skips paths that don't exist. There is
+    deliberately no offlineServicing driver pass — the rest of the VirtIO
+    drivers and the guest agent come from virtio-win-guest-tools.exe in
+    FirstLogonCommands.
   - This is a Packer template (templatefile): $${winrm_password} is filled in
     from the winrm_password variable at build time and written to the build
     CD as Autounattend.xml. Never commit a real password here.
-  - No <ProductKey> is set, which works for evaluation media; add one under
-    <UserData><ProductKey> for retail/VLK media — but never commit a real
-    key; pass it in as a Packer variable the same way as winrm_password.
+  - <ProductKey>: filled from the product_key Packer variable, which
+    defaults to the public Server 2025 Standard GVLK (KMS client key) that
+    volume-licence media needs. Empty product_key omits the element (eval
+    media). Never commit a real MAK/retail key — pass it via
+    PKR_VAR_product_key like winrm_password.
 -->
 <unattend xmlns="urn:schemas-microsoft-com:unattend" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
 
@@ -34,13 +41,40 @@
     <component name="Microsoft-Windows-PnpCustomizationsWinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
       <DriverPaths>
         <PathAndCredentials wcm:action="add" wcm:keyValue="1">
-          <Path>E:\vioscsi\2k22\amd64</Path>
+          <Path>D:\vioscsi\2k22\amd64</Path>
         </PathAndCredentials>
         <PathAndCredentials wcm:action="add" wcm:keyValue="2">
-          <Path>E:\NetKVM\2k22\amd64</Path>
+          <Path>D:\NetKVM\2k22\amd64</Path>
         </PathAndCredentials>
         <PathAndCredentials wcm:action="add" wcm:keyValue="3">
+          <Path>D:\Balloon\2k22\amd64</Path>
+        </PathAndCredentials>
+        <PathAndCredentials wcm:action="add" wcm:keyValue="4">
+          <Path>E:\vioscsi\2k22\amd64</Path>
+        </PathAndCredentials>
+        <PathAndCredentials wcm:action="add" wcm:keyValue="5">
+          <Path>E:\NetKVM\2k22\amd64</Path>
+        </PathAndCredentials>
+        <PathAndCredentials wcm:action="add" wcm:keyValue="6">
           <Path>E:\Balloon\2k22\amd64</Path>
+        </PathAndCredentials>
+        <PathAndCredentials wcm:action="add" wcm:keyValue="7">
+          <Path>F:\vioscsi\2k22\amd64</Path>
+        </PathAndCredentials>
+        <PathAndCredentials wcm:action="add" wcm:keyValue="8">
+          <Path>F:\NetKVM\2k22\amd64</Path>
+        </PathAndCredentials>
+        <PathAndCredentials wcm:action="add" wcm:keyValue="9">
+          <Path>F:\Balloon\2k22\amd64</Path>
+        </PathAndCredentials>
+        <PathAndCredentials wcm:action="add" wcm:keyValue="10">
+          <Path>G:\vioscsi\2k22\amd64</Path>
+        </PathAndCredentials>
+        <PathAndCredentials wcm:action="add" wcm:keyValue="11">
+          <Path>G:\NetKVM\2k22\amd64</Path>
+        </PathAndCredentials>
+        <PathAndCredentials wcm:action="add" wcm:keyValue="12">
+          <Path>G:\Balloon\2k22\amd64</Path>
         </PathAndCredentials>
       </DriverPaths>
     </component>
@@ -95,7 +129,7 @@
           <InstallFrom>
             <MetaData wcm:action="add">
               <Key>/IMAGE/NAME</Key>
-              <Value>Windows Server 2025 Standard (Desktop Experience)</Value>
+              <Value>${image_name}</Value>
             </MetaData>
           </InstallFrom>
           <InstallTo>
@@ -106,6 +140,12 @@
       </ImageInstall>
 
       <UserData>
+%{ if product_key != "" ~}
+        <ProductKey>
+          <Key>${product_key}</Key>
+          <WillShowUI>OnError</WillShowUI>
+        </ProductKey>
+%{ endif ~}
         <AcceptEula>true</AcceptEula>
         <FullName>Administrator</FullName>
         <Organization></Organization>
@@ -113,22 +153,10 @@
     </component>
   </settings>
 
-  <settings pass="offlineServicing">
-    <component name="Microsoft-Windows-PnpCustomizationsWinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
-      <DriverPaths>
-        <PathAndCredentials wcm:action="add" wcm:keyValue="1">
-          <Path>E:\vioscsi\2k22\amd64</Path>
-        </PathAndCredentials>
-        <PathAndCredentials wcm:action="add" wcm:keyValue="2">
-          <Path>E:\NetKVM\2k22\amd64</Path>
-        </PathAndCredentials>
-      </DriverPaths>
-    </component>
-  </settings>
-
   <settings pass="specialize">
     <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
-      <ComputerName>win-desktop-builder</ComputerName>
+      <!-- NetBIOS limit: 15 chars max, or the specialize pass fails -->
+      <ComputerName>win-desk-build</ComputerName>
       <TimeZone>UTC</TimeZone>
     </component>
     <component name="Microsoft-Windows-SQMApi" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
@@ -169,28 +197,35 @@
       </AutoLogon>
 
       <FirstLogonCommands>
+        <!-- VirtIO guest tools: NetKVM + other drivers and the QEMU guest
+             agent, which Packer needs to discover the VM's IP for WinRM.
+             The virtio ISO's drive letter isn't fixed (SATA CDs), so probe. -->
         <SynchronousCommand wcm:action="add">
           <Order>1</Order>
-          <CommandLine>cmd /c winrm quickconfig -quiet</CommandLine>
+          <CommandLine>cmd /c for %i in (D E F G) do @if exist %i:\virtio-win-guest-tools.exe start /wait %i:\virtio-win-guest-tools.exe /install /passive /norestart</CommandLine>
         </SynchronousCommand>
         <SynchronousCommand wcm:action="add">
           <Order>2</Order>
-          <CommandLine>cmd /c winrm set winrm/config/service/auth @{Basic="true"}</CommandLine>
+          <CommandLine>cmd /c winrm quickconfig -quiet</CommandLine>
         </SynchronousCommand>
         <SynchronousCommand wcm:action="add">
           <Order>3</Order>
-          <CommandLine>cmd /c winrm set winrm/config/service @{AllowUnencrypted="true"}</CommandLine>
+          <CommandLine>cmd /c winrm set winrm/config/service/auth @{Basic="true"}</CommandLine>
         </SynchronousCommand>
         <SynchronousCommand wcm:action="add">
           <Order>4</Order>
-          <CommandLine>cmd /c netsh advfirewall firewall add rule name="WinRM-HTTP" dir=in localport=5985 protocol=TCP action=allow</CommandLine>
+          <CommandLine>cmd /c winrm set winrm/config/service @{AllowUnencrypted="true"}</CommandLine>
         </SynchronousCommand>
         <SynchronousCommand wcm:action="add">
           <Order>5</Order>
-          <CommandLine>cmd /c netsh advfirewall firewall set rule group="Remote Desktop" new enable=yes</CommandLine>
+          <CommandLine>cmd /c netsh advfirewall firewall add rule name="WinRM-HTTP" dir=in localport=5985 protocol=TCP action=allow</CommandLine>
         </SynchronousCommand>
         <SynchronousCommand wcm:action="add">
           <Order>6</Order>
+          <CommandLine>cmd /c netsh advfirewall firewall set rule group="Remote Desktop" new enable=yes</CommandLine>
+        </SynchronousCommand>
+        <SynchronousCommand wcm:action="add">
+          <Order>7</Order>
           <CommandLine>powershell -Command "Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0"</CommandLine>
         </SynchronousCommand>
       </FirstLogonCommands>
