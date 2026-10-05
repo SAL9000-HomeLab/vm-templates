@@ -38,3 +38,43 @@
 
 - name: Set power plan to High Performance
   ansible.windows.win_shell: powercfg /setactive SCHEME_MIN
+
+# Desktop Experience only: Windows 24H2/Server 2025 can start a new user's
+# first shell before its system app packages are registered, crashing
+# explorer.exe into a black screen. Every account on a clone is new, so
+# register them at each logon (no-op once present). See the script header.
+- name: Check for the shell app packages (Desktop Experience)
+  ansible.windows.win_stat:
+    path: C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\appxmanifest.xml
+  register: windows_common_shell_packages
+
+- name: Create the vm-templates script directory
+  ansible.windows.win_file:
+    path: C:\ProgramData\vm-templates
+    state: directory
+  when: windows_common_shell_packages.stat.exists
+
+- name: Install the shell package registration script
+  ansible.windows.win_copy:
+    src: Register-ShellPackages.ps1
+    dest: C:\ProgramData\vm-templates\Register-ShellPackages.ps1
+  when: windows_common_shell_packages.stat.exists
+
+- name: Register the shell app packages at every user logon
+  community.windows.win_scheduled_task:
+    name: Register shell app packages
+    path: \vm-templates
+    description: Registers system app packages explorer.exe needs for new profiles (Windows 24H2 first-logon bug).
+    actions:
+      - path: powershell.exe
+        arguments: >-
+          -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass
+          -File C:\ProgramData\vm-templates\Register-ShellPackages.ps1
+    triggers:
+      - type: logon
+    logon_type: group
+    group: BUILTIN\Users
+    run_level: limited
+    state: present
+    enabled: true
+  when: windows_common_shell_packages.stat.exists
