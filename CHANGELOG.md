@@ -14,3 +14,4 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
 - Fixed: Running the playbooks from `ansible/` against deployed VMs (per
   `inventory/hosts.ini.example`) failed to find the roles; `ansible/ansible.cfg` now sets
   `roles_path`, and a root `ansible.cfg` does the same for tools run from the repo root.
+- Changed: Ansible CI runs on pull requests only, no longer on pushes to `main` (synced from ans-template).
