@@ -225,7 +225,7 @@ template name from `terraform/modules/proxmox-vm` consumers.
 Two workflows call reusable workflows from
 [`SAL9000-HomeLab/shared-actions`](https://github.com/SAL9000-HomeLab/shared-actions):
 
-- **Ansible CI** (`.github/workflows/ansible-ci.yml`), on pushes to `main` and every pull request:
+- **Ansible CI** (`.github/workflows/ansible-ci.yml`), on every pull request:
   `yamllint`, then `ansible-lint` using [`.ansible-lint`](.ansible-lint). ansible-lint also
   syntax-checks the playbooks in `ansible/playbooks/`. The workflow's own syntax-check step only
   looks for playbooks at the repository root, and there are none here.
