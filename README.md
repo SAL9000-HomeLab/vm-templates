@@ -204,6 +204,27 @@ Proxmox node named after the `template_name` variable (e.g. `tpl-ubuntu-2404`).
 `packer/windows-server-2025` builds two templates (`tpl-windows-server-2025-core`
 and `tpl-windows-server-2025-desktop`) in a single `packer build .`.
 
+## Windows clones
+
+The Windows templates are generalized with sysprep and a clone answer file
+([unattend-clone.xml.pkrtpl](packer/windows-server-2025/answer_files/unattend-clone.xml.pkrtpl)),
+so a clone's first boot needs no one at the console:
+
+1. Specialize and OOBE run unattended: a random `WIN-xxxx` computer name, UTC,
+   en-US, every OOBE screen skipped, and the local Administrator keeps the build
+   password (`PKR_VAR_winrm_password`). Nothing logs on automatically.
+2. `SetupComplete.cmd` (as SYSTEM, once OOBE finishes) turns WinRM Basic auth
+   and unencrypted traffic off, deletes the clone answer file and the copy
+   Windows cached of it, and writes `C:\Windows\Setup\Scripts\SetupComplete.done`.
+3. The VM then sits at the logon screen with WinRM on 5985 (Kerberos/NTLM),
+   RDP and the QEMU guest agent running, and no network configuration beyond DHCP.
+
+Everything per VM is the deploy repo's job: proxmox-deploy waits for
+`SetupComplete.done` over the guest agent, sets the static IP, name and a new
+Administrator password, then joins the domain. `sysprep.ps1` also deletes the
+answer file cached from the build before generalizing, otherwise every clone
+would replay the build's computer name, AutoLogon and WinRM commands.
+
 ## Deploying VMs from a template
 
 ```sh

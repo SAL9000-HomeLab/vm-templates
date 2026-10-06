@@ -225,6 +225,15 @@ build {
     ]
   }
 
+  # The answer file each clone's first boot runs (no console needed); sysprep.ps1
+  # passes it to sysprep with /unattend:.
+  provisioner "file" {
+    content = templatefile("answer_files/unattend-clone.xml.pkrtpl", {
+      winrm_password = local.winrm_password_xml
+    })
+    destination = "C:/Windows/System32/Sysprep/unattend-clone.xml"
+  }
+
   # Generalize the image so cloned VMs each get a unique SID. Must be the
   # powershell provisioner (windows-shell feeds the .ps1 to cmd.exe). The
   # builder then shuts the VM down and converts it into a Proxmox template.
