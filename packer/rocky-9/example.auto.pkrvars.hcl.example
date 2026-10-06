@@ -2,7 +2,7 @@
 # Proxmox URL/API token come from PROXMOX_URL / PROXMOX_API_TOKEN_ID /
 # PROXMOX_API_TOKEN_SECRET environment variables — no need to set them here.
 
-proxmox_node    = "pve1"
+proxmox_node    = "pve01"
 iso_file        = "nfs_hdd:iso/Rocky-9.5-x86_64-dvd.iso"
 vm_storage_pool = "nfs_ssd"
 network_bridge  = "vnet30"

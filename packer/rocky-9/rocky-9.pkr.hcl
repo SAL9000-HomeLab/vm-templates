@@ -18,10 +18,10 @@ source "proxmox-iso" "rocky-9" {
   insecure_skip_tls_verify = var.proxmox_insecure_skip_tls_verify
   node                     = var.proxmox_node
 
-  vm_id                 = var.template_id
-  vm_name               = var.template_name
-  template_name         = var.template_name
-  template_description  = "Rocky Linux 9, built ${timestamp()}"
+  vm_id                = var.template_id
+  vm_name              = var.template_name
+  template_name        = var.template_name
+  template_description = "Rocky Linux 9, built ${timestamp()}"
 
   boot_iso {
     iso_file         = var.iso_file
@@ -61,12 +61,12 @@ source "proxmox-iso" "rocky-9" {
   cloud_init_disk_type = "scsi"
 
   boot_command = [
-    "<up><wait>e",
+    "<home><wait>e<wait>",
     "<down><down><end><wait>",
     " inst.text inst.ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ks.cfg<wait>",
     "<leftCtrlOn>x<leftCtrlOff>"
   ]
-  boot_wait      = "5s"
+  boot_wait      = "10s"
   http_directory = "http"
   http_interface = var.http_interface
   http_port_min  = 8300
@@ -83,10 +83,10 @@ build {
   sources = ["source.proxmox-iso.rocky-9"]
 
   provisioner "ansible" {
-    playbook_file     = "../../ansible/playbooks/rocky.yml"
-    user              = var.ssh_username
-    use_proxy         = false
-    ansible_env_vars  = ["ANSIBLE_ROLES_PATH=../../ansible/roles"]
+    playbook_file    = "../../ansible/playbooks/rocky.yml"
+    user             = var.ssh_username
+    use_proxy        = false
+    ansible_env_vars = ["ANSIBLE_ROLES_PATH=../../ansible/roles"]
   }
 
   provisioner "shell" {
