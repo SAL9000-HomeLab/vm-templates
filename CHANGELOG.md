@@ -9,6 +9,9 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
   answer file (random name, OOBE skipped, build Administrator password, no AutoLogon) instead of none, deletes the
   build's cached answer file first, and `SetupComplete.cmd` removes the clone answer file and writes
   `SetupComplete.done` for the deploy repo to wait on. Rebuild the templates to pick this up.
+- Fixed: the Windows build fails when sysprep didn't generalize the image (its exit code can be 0 regardless):
+  `sysprep.ps1` waits for `ImageState` to reach `IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE` and otherwise prints the
+  end of sysprep's `setuperr.log`, instead of letting Packer turn an ungeneralized VM into a template.
 - Added: CI via the shared `SAL9000-HomeLab/shared-actions` workflows: Ansible checks (yamllint,
   ansible-lint) on pushes to `main` and pull requests, and Markdown, link and YAML linting on pull
   requests. Adds `.yamllint.yml`, `.ansible-lint`, `.markdownlint.json`, `.linkspector.yml`, a PR

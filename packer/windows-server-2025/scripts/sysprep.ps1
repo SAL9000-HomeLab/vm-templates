@@ -48,7 +48,20 @@ Remove-ItemProperty -Path $winlogon -Name AutoLogonCount, DefaultPassword -Error
 # waits for it nor sets $LASTEXITCODE, so wait on the process explicitly.
 $sysprep = Start-Process -FilePath "$sysprepDir\sysprep.exe" `
     -ArgumentList '/generalize', '/oobe', '/quit', '/quiet', "/unattend:$cloneAnswers" -Wait -PassThru
-if ($sysprep.ExitCode -ne 0) {
-    Write-Error "sysprep failed (exit $($sysprep.ExitCode)); see $sysprepDir\Panther\setuperr.log"
-    exit $sysprep.ExitCode
+# sysprep can exit 0 without generalizing (it logs the failure instead), and the builder would then convert an
+# ungeneralized VM into a template whose clones keep the build's name and never run specialize or OOBE. A
+# generalized image waiting for its first OOBE has this ImageState; fail the build with sysprep's errors otherwise.
+# Polled for a while in case sysprep's process returns before generalize has finished.
+$deadline = (Get-Date).AddMinutes(15)
+do {
+    $imageState = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State').ImageState
+    if ($imageState -eq 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { break }
+    Start-Sleep -Seconds 10
+} while ((Get-Date) -lt $deadline)
+if ($sysprep.ExitCode -ne 0 -or $imageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') {
+    Write-Output "sysprep exit code $($sysprep.ExitCode), ImageState $imageState. Last lines of setuperr.log:"
+    Get-Content "$sysprepDir\Panther\setuperr.log" -Tail 40 -ErrorAction SilentlyContinue
+    Write-Error "sysprep did not generalize the image; see $sysprepDir\Panther\setuperr.log"
+    exit 1
 }
+Write-Output "sysprep generalized the image (ImageState $imageState)"
