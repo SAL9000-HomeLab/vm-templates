@@ -76,7 +76,8 @@
         "VMID",
         "vnet",
         "wslconfig",
-        "zerombr"
+        "zerombr",
+        "GVLK"
     ],
     "useGitignore": true,
     "ignoreRegExpList": [

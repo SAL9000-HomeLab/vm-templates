@@ -5,7 +5,7 @@
 # than writing it here:  export PKR_VAR_winrm_password='...'
 
 proxmox_node        = "pve1"
-# Defaults expect volume-licence media (installs with the public GVLK). For
+# Defaults expect volume-license media (installs with the public GVLK). For
 # evaluation media also set: product_key = "", and core_image_name /
 # desktop_image_name with " Evaluation" appended to the edition name.
 iso_file            = "local:iso/SW_DVD9_Win_Server_STD_CORE_2025_64Bit_English_VL.iso"
@@ -15,6 +15,6 @@ efi_storage_pool    = "local-zfs"
 network_bridge      = "vnet30"
 
 core_template_id      = 9002
-core_template_name    = "tpl-windows-server-2025-core"
+core_template_name    = "tpl-win2025-c"
 desktop_template_id   = 9003
-desktop_template_name = "tpl-windows-server-2025-desktop"
+desktop_template_name = "tpl-win2025-d"
