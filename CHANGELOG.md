@@ -12,6 +12,10 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
 - Fixed: the Windows build fails when sysprep didn't generalize the image (its exit code can be 0 regardless):
   `sysprep.ps1` waits for `ImageState` to reach `IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE` and otherwise prints the
   end of sysprep's `setuperr.log`, instead of letting Packer turn an ungeneralized VM into a template.
+- Fixed: sysprep runs as a SYSTEM scheduled task (with `/mode:vm`) instead of as a child of the WinRM session.
+  Generalize resets the network and WinRM then killed sysprep mid-generalize, leaving templates whose clones stay
+  as the build machine (GeneralizationState 3). The provisioner retries (`max_retries = 5`) and the script only
+  resumes waiting on a retry; `SetupComplete.cmd` deletes the task on each clone.
 - Added: CI via the shared `SAL9000-HomeLab/shared-actions` workflows: Ansible checks (yamllint,
   ansible-lint) on pushes to `main` and pull requests, and Markdown, link and YAML linting on pull
   requests. Adds `.yamllint.yml`, `.ansible-lint`, `.markdownlint.json`, `.linkspector.yml`, a PR

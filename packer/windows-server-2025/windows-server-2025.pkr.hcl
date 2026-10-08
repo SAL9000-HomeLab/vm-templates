@@ -239,5 +239,8 @@ build {
   # builder then shuts the VM down and converts it into a Proxmox template.
   provisioner "powershell" {
     scripts = ["scripts/sysprep.ps1"]
+    # Generalize resets the network stack and can drop the WinRM session. sysprep keeps running (it's a
+    # scheduled task) and a retry of the script only resumes waiting for it.
+    max_retries = 5
   }
 }
