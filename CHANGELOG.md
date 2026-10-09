@@ -16,6 +16,9 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
   Generalize resets the network and WinRM then killed sysprep mid-generalize, leaving templates whose clones stay
   as the build machine (GeneralizationState 3). The provisioner retries (`max_retries = 5`) and the script only
   resumes waiting on a retry; `SetupComplete.cmd` deletes the task on each clone.
+- Added: README section on how sysprep runs in the Windows build and what a failed build prints.
+- Fixed: the README's `PROXMOX_API_TOKEN_ID` example uses single quotes; in double quotes the `!` in a token ID
+  triggers history expansion in interactive zsh and bash.
 - Added: CI via the shared `SAL9000-HomeLab/shared-actions` workflows: Ansible checks (yamllint,
   ansible-lint) on pushes to `main` and pull requests, and Markdown, link and YAML linting on pull
   requests. Adds `.yamllint.yml`, `.ansible-lint`, `.markdownlint.json`, `.linkspector.yml`, a PR
