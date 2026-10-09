@@ -134,7 +134,7 @@ credentials as environment variables before running Packer or Terraform:
 
 ```sh
 export PROXMOX_URL="https://proxmox.example.lan:8006/api2/json"
-export PROXMOX_API_TOKEN_ID="terraform@pve!vm-templates"
+export PROXMOX_API_TOKEN_ID='terraform@pve!vm-templates'  # single quotes: "!" is history expansion in zsh/bash
 export PROXMOX_API_TOKEN_SECRET="..."
 ```
 
@@ -203,6 +203,48 @@ Repeat per OS directory. Each build leaves a template on the configured
 Proxmox node named after the `template_name` variable (e.g. `tpl-ubuntu-2404`).
 `packer/windows-server-2025` builds two templates (`tpl-windows-server-2025-core`
 and `tpl-windows-server-2025-desktop`) in a single `packer build .`.
+
+## Windows clones
+
+The Windows templates are generalized with sysprep and a clone answer file
+([unattend-clone.xml.pkrtpl](packer/windows-server-2025/answer_files/unattend-clone.xml.pkrtpl)),
+so a clone's first boot needs no one at the console:
+
+1. Specialize and OOBE run unattended: a random `WIN-xxxx` computer name, UTC,
+   en-US, every OOBE screen skipped, and the local Administrator keeps the build
+   password (`PKR_VAR_winrm_password`). Nothing logs on automatically.
+2. `SetupComplete.cmd` (as SYSTEM, once OOBE finishes) turns WinRM Basic auth
+   and unencrypted traffic off, deletes the clone answer file and the copy
+   Windows cached of it, and writes `C:\Windows\Setup\Scripts\SetupComplete.done`.
+3. The VM then sits at the logon screen with WinRM on 5985 (Kerberos/NTLM),
+   RDP and the QEMU guest agent running, and no network configuration beyond DHCP.
+
+Everything per VM is the deploy repo's job: proxmox-deploy waits for
+`SetupComplete.done` over the guest agent, sets the static IP, DNS and a new
+Administrator password, then renames the computer as it joins the domain.
+`sysprep.ps1` also deletes the answer file cached from the build before
+generalizing, otherwise every clone would replay the build's computer name,
+AutoLogon and WinRM commands.
+
+### How sysprep runs in the build
+
+The proxmox-iso builder shuts the VM down and converts it into a template as
+soon as the last provisioner returns, so `sysprep.ps1` only returns once the
+image is generalized (`ImageState` `IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE`):
+
+- sysprep (`/generalize /oobe /mode:vm /quit /unattend:…`) runs as a SYSTEM
+  scheduled task, not as a child of the WinRM session. Generalize resets the
+  network stack, which can drop the session, and WinRM kills every process a
+  dropped session started: sysprep died mid-generalize once, leaving a template
+  whose clones stayed the build machine (`GeneralizationState` 3, `ImageState`
+  `IMAGE_STATE_UNDEPLOYABLE`, first boot failing `sysprep /respecialize`).
+- The provisioner has `max_retries = 5`, and the script is safe to re-run: a
+  retry after a dropped session only resumes waiting.
+- If sysprep exits without generalizing, or hasn't finished after 30 minutes,
+  the build fails and prints the end of
+  `C:\Windows\System32\Sysprep\Panther\setuperr.log`. A successful build
+  logs `sysprep generalized the image (ImageState IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE)`.
+- `SetupComplete.cmd` deletes the scheduled task on each clone.
 
 ## Deploying VMs from a template
 
