@@ -14,6 +14,7 @@ stable identifiers.
 template_catalog:
   rocky9: tpl-rocky-9
   rocky10: tpl-rocky-10
+  rocky10_rke2: tpl-rocky-10-rke2
   ubuntu2404: tpl-ubuntu-2404
   windows2025_core: tpl-windows-server-2025-core
   windows2025_desktop: tpl-windows-server-2025-desktop
@@ -164,7 +165,7 @@ These keypairs are gitignored (`packer/*/files/ansible_build_key*`) since a
 fresh clone won't have them. Generate your own per OS before building:
 
 ```sh
-cd packer/rocky-9   # or packer/rocky-10, packer/ubuntu-2404
+cd packer/rocky-9   # or packer/rocky-10, packer/ubuntu-2404 (rocky-10-rke2 uses rocky-10's key)
 ssh-keygen -t ed25519 -N "" -f files/ansible_build_key
 cat files/ansible_build_key.pub
 ```
@@ -201,8 +202,35 @@ packer build .
 
 Repeat per OS directory. Each build leaves a template on the configured
 Proxmox node named after the `template_name` variable (e.g. `tpl-ubuntu-2404`).
+`packer/rocky-10-rke2` needs `packer/rocky-10`'s build key (see [RKE2 node template](#rke2-node-template)).
 `packer/windows-server-2025` builds two templates (`tpl-windows-server-2025-core`
 and `tpl-windows-server-2025-desktop`) in a single `packer build .`.
+
+## RKE2 node template
+
+`packer/rocky-10-rke2` builds `tpl-rocky-10-rke2`: Rocky Linux 10 prepared as a Kubernetes node, with the
+`rke2-server` and `rke2-agent` RPMs of one RKE2 release (`rke2_version`, default `v1.36.5+rke2r1`) installed from
+Rancher's EL10 repositories but neither unit enabled. Every node is cloned from the same template; a clone becomes a
+server or an agent when the cluster deployment writes `/etc/rancher/rke2/config.yaml` and starts that unit.
+
+On top of the Rocky 10 build, the [`rke2_node`](ansible/roles/rke2_node) role:
+
+- installs without a swap volume (the build serves `../rocky-10/http/ks.cfg` with `autopart --noswap`, and the role
+  fails the build if swap is still there), since the kubelet won't start with swap on;
+- adds the Rancher RPM repositories disabled, so a routine `dnf upgrade` never moves a node to another RKE2
+  release (upgrades are a cluster operation; enable the repositories explicitly for them);
+- installs NFS and iSCSI clients (`nfs-utils`, `iscsi-initiator-utils`, `cryptsetup`) for NFS and Longhorn volumes,
+  and enables `iscsid`;
+- disables firewalld (RKE2 documents it as conflicting with the default Canal CNI), keeps NetworkManager away from
+  the CNI interfaces, and loads `overlay` / `br_netfilter` with the forwarding sysctls at boot;
+- puts `kubectl`, `crictl` and `ctr` on the PATH (`/etc/profile.d/rke2.sh`).
+
+The build deletes `/etc/iscsi/initiatorname.iscsi` along with the machine ID and SSH host keys, so each clone gets
+its own iSCSI initiator name on first boot. It reuses the Rocky 10 build key
+(`packer/rocky-10/files/ansible_build_key`), because the kickstart it serves carries that key's public half.
+
+Pick `rke2_version` from the Kubernetes versions your Rancher release supports, and rebuild the template to change
+it for new nodes. Existing nodes keep the release they were installed with.
 
 ## Windows clones
 

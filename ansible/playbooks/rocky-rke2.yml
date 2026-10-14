@@ -1,0 +1,8 @@
+---
+- name: Configure Rocky Linux RKE2 node template
+  hosts: all
+  become: true
+  roles:
+    - linux_common
+    - qemu_guest_agent
+    - rke2_node
