@@ -1,0 +1,140 @@
+---
+# Prepares an EL node for RKE2 and installs the rke2-server and rke2-agent RPMs without enabling either: each
+# clone becomes a server or an agent when the cluster role writes /etc/rancher/rke2/config.yaml and starts
+# that unit. Nothing here identifies a node, so the result is safe to template.
+
+- name: Check the OS is an Enterprise Linux the RKE2 RPMs are built for
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.os_family == 'RedHat'
+      - ansible_facts.distribution_major_version in ['8', '9', '10']
+    fail_msg: >-
+      rke2_node installs Rancher's EL8/9/10 RPMs; {{ ansible_facts.distribution }}
+      {{ ansible_facts.distribution_version }} isn't one of them.
+    quiet: true
+
+# The kubelet refuses to start with swap on. The RKE2 Packer build installs without a swap volume, so swap here
+# means the kickstart changed; fail rather than ship a template whose nodes won't start.
+- name: Check the node has no swap
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.swaptotal_mb | int == 0
+    fail_msg: >-
+      The node has {{ ansible_facts.swaptotal_mb }} MB of swap. Kubernetes needs swap off: install without a swap
+      volume (kickstart `autopart --noswap`).
+    quiet: true
+
+- name: Resolve the RKE2 repository and package versions
+  ansible.builtin.set_fact:
+    rke2_node_minor: "{{ rke2_node_version | regex_replace('^v?([0-9]+\\.[0-9]+)\\..*$', '\\1') }}"
+    # Tag v1.36.5+rke2r1 is RPM version 1.36.5~rke2r1.
+    rke2_node_rpm_version: "{{ rke2_node_version | regex_replace('^v', '') | replace('+', '~') }}"
+    rke2_node_el: "{{ ansible_facts.distribution_major_version }}"
+    rke2_node_repo_url: "{{ rke2_node_rpm_base_url }}/{{ rke2_node_rpm_channel }}"
+
+# Both repositories stay disabled so a routine `dnf upgrade` never moves a running node to another RKE2 release;
+# upgrades are a cluster operation. Installs enable them explicitly.
+- name: Add the RKE2 common repository (rke2-selinux)
+  ansible.builtin.yum_repository:
+    name: rancher-rke2-common
+    description: Rancher RKE2 common ({{ rke2_node_rpm_channel }})
+    baseurl: "{{ rke2_node_repo_url }}/common/centos/{{ rke2_node_el }}/noarch"
+    gpgcheck: true
+    gpgkey: "{{ rke2_node_rpm_gpg_key }}"
+    enabled: false
+
+- name: Add the repository for the RKE2 minor release
+  ansible.builtin.yum_repository:
+    name: rancher-rke2-{{ rke2_node_minor | replace('.', '-') }}
+    description: Rancher RKE2 {{ rke2_node_minor }} ({{ rke2_node_rpm_channel }})
+    baseurl: "{{ rke2_node_repo_url }}/{{ rke2_node_minor }}/centos/{{ rke2_node_el }}/x86_64"
+    gpgcheck: true
+    gpgkey: "{{ rke2_node_rpm_gpg_key }}"
+    enabled: false
+
+- name: Install the RKE2 server and agent packages
+  ansible.builtin.dnf:
+    name:
+      - rke2-server-{{ rke2_node_rpm_version }}
+      - rke2-agent-{{ rke2_node_rpm_version }}
+    enablerepo:
+      - rancher-rke2-common
+      - rancher-rke2-{{ rke2_node_minor | replace('.', '-') }}
+    state: present
+
+- name: Install storage client packages
+  ansible.builtin.dnf:
+    name: "{{ rke2_node_storage_packages }}"
+    state: present
+
+- name: Leave both RKE2 units disabled until the node joins a cluster
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: false
+  loop:
+    - rke2-server
+    - rke2-agent
+
+# Longhorn attaches volumes over iSCSI. The build deletes /etc/iscsi/initiatorname.iscsi, and iscsi-init.service
+# generates a new initiator name on each clone's first boot.
+- name: Enable iscsid
+  ansible.builtin.systemd:
+    name: iscsid
+    enabled: true
+  when: "'iscsi-initiator-utils' in rke2_node_storage_packages"
+
+# RKE2 documents firewalld as conflicting with its default CNI (Canal). Cluster traffic stays on the server VLAN;
+# filter at the network edge instead.
+- name: Disable firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: false
+    state: stopped
+  register: rke2_node_firewalld
+  failed_when:
+    - rke2_node_firewalld is failed
+    - "'Could not find the requested service' not in (rke2_node_firewalld.msg | default(''))"
+
+- name: Keep NetworkManager away from the CNI interfaces
+  ansible.builtin.copy:
+    src: rke2-canal.conf
+    dest: /etc/NetworkManager/conf.d/rke2-canal.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload NetworkManager
+
+- name: Load the kernel modules Kubernetes networking needs at boot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/rke2.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      # Managed by vm-templates (rke2_node)
+      overlay
+      br_netfilter
+
+- name: Set the sysctls Kubernetes networking needs at boot
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/90-rke2.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      # Managed by vm-templates (rke2_node)
+      net.ipv4.ip_forward = 1
+      net.bridge.bridge-nf-call-iptables = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+
+- name: Put the RKE2 tools (kubectl, crictl, ctr) on the PATH
+  ansible.builtin.copy:
+    dest: /etc/profile.d/rke2.sh
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      # Managed by vm-templates (rke2_node)
+      export PATH="$PATH:/var/lib/rancher/rke2/bin"
+      export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+      export CRI_CONFIG_FILE=/var/lib/rancher/rke2/agent/etc/crictl.yaml

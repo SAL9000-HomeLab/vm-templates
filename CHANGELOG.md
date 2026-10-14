@@ -5,6 +5,11 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
 
 ## [Unreleased]
 
+- Added: `packer/rocky-10-rke2` builds `tpl-rocky-10-rke2`, a Rocky Linux 10 Kubernetes node template with RKE2
+  `v1.36.5+rke2r1` (`rke2_version`) installed but not enabled. New `rke2_node` role: Rancher EL10 repositories (left
+  disabled), `rke2-server` + `rke2-agent`, NFS/iSCSI clients, no swap, firewalld off, NetworkManager ignores the CNI
+  interfaces, kernel modules and sysctls. The build reuses the Rocky 10 kickstart without a swap volume and clears
+  the iSCSI initiator name so each clone gets its own.
 - Changed: Windows Server 2025 clones boot through specialize and OOBE unattended. sysprep now runs with a clone
   answer file (random name, OOBE skipped, build Administrator password, no AutoLogon) instead of none, deletes the
   build's cached answer file first, and `SetupComplete.cmd` removes the clone answer file and writes
