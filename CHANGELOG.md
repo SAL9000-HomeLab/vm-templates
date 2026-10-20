@@ -5,6 +5,11 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
 
 ## [Unreleased]
 
+- Fixed: Ubuntu 24.04 clones still ignored Proxmox's cloud-init drive (DHCP address, no hostname or SSH keys from
+  proxmox-deploy): the installer copies Packer's `autoinstall ds=nocloud-net` boot options into the installed
+  system's kernel command line, and cloud-init then uses an empty NoCloud source from the command line.
+  `files/clean-installer-cmdline.sh` removes them from GRUB's settings during the build, and fails the build if
+  `/boot/grub/grub.cfg` still has them. Rebuild `tpl-ubuntu-2404`.
 - Fixed: Ubuntu 24.04 clones ignored Proxmox's cloud-init drive and came up without the IP address, hostname or SSH
   keys proxmox-deploy set: the installer's `/etc/cloud/cloud.cfg.d/99-installer.cfg` (`datasource_list: [None]`)
   stayed in the template. The build now removes it and limits cloud-init to Proxmox's drive (NoCloud, ConfigDrive).
