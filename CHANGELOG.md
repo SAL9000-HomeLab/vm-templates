@@ -5,6 +5,8 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
 
 ## [Unreleased]
 
+- Fixed: the Ubuntu kernel command line cleanup left the installer's `---` separator (`GRUB_CMDLINE_LINUX_DEFAULT="---"`);
+  it's removed too, and the check now looks only at `grub.cfg`'s `linux` lines (and matches `ds=nocloud-net`).
 - Fixed: Ubuntu 24.04 clones still ignored Proxmox's cloud-init drive (DHCP address, no hostname or SSH keys from
   proxmox-deploy): the installer copies Packer's `autoinstall ds=nocloud-net` boot options into the installed
   system's kernel command line, and cloud-init then uses an empty NoCloud source from the command line.
