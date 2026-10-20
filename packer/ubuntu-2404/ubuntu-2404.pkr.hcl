@@ -89,6 +89,13 @@ build {
     ansible_env_vars = ["ANSIBLE_ROLES_PATH=../../ansible/roles"]
   }
 
+  # The installer copied Packer's "autoinstall ds=nocloud-net" boot options into the
+  # template's kernel command line; with them, clones ignore Proxmox's cloud-init drive.
+  provisioner "shell" {
+    script          = "files/clean-installer-cmdline.sh"
+    execute_command = "{{ .Vars }} sudo -E sh '{{ .Path }}'"
+  }
+
   provisioner "shell" {
     inline = [
       "sudo cloud-init clean --logs",
