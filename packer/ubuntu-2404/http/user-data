@@ -25,7 +25,7 @@ autoinstall:
     # targets cloud-init's "default user" concept, which isn't reliably the
     # same account.
     authorized-keys:
-      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGZJImxC56Sl+IwO9gHBYpmx8XFxNYWhXwiMHLJfp8K2 vm-templates ubuntu-2404 packer build (throwaway, build-time only)"
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA3BOFuMUrlBdWd/FGBSjeY9RXEB0JkeJbE6ziBeC4to sermanre@X670E-M2"
   storage:
     layout:
       name: direct
