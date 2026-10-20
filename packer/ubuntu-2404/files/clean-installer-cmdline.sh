@@ -8,10 +8,11 @@
 set -eu
 
 clean() {
-  # Drop the autoinstall and ds=... words from GRUB_CMDLINE_LINUX and GRUB_CMDLINE_LINUX_DEFAULT; keep the rest.
+  # Drop the autoinstall, ds=... and --- words (the installer's separator, copied too) from GRUB_CMDLINE_LINUX and
+  # GRUB_CMDLINE_LINUX_DEFAULT; keep the rest.
   sed -i -E '/^GRUB_CMDLINE_LINUX/ {
-    s/(^|[" ])(autoinstall|ds=[^" ]*)( |")/\1\3/g
-    s/(^|[" ])(autoinstall|ds=[^" ]*)( |")/\1\3/g
+    s/(^|[" ])(autoinstall|ds=[^" ]*|---)( |")/\1\3/g
+    s/(^|[" ])(autoinstall|ds=[^" ]*|---)( |")/\1\3/g
     s/  +/ /g
     s/=" /="/
     s/ "$/"/
@@ -24,9 +25,9 @@ for f in /etc/default/grub.d/*.cfg; do
 done
 update-grub
 
-if grep -qE '(^|[[:space:]])(autoinstall|ds=)' /boot/grub/grub.cfg; then
+if grep -qE '^[[:space:]]*linux[[:space:]].*[[:space:]](autoinstall|ds=[^[:space:]]*|---)([[:space:]]|$)' /boot/grub/grub.cfg; then
   echo "autoinstall options are still in /boot/grub/grub.cfg:" >&2
-  grep -nE '(^|[[:space:]])(autoinstall|ds=)' /boot/grub/grub.cfg >&2
+  grep -nE '^[[:space:]]*linux[[:space:]].*[[:space:]](autoinstall|ds=[^[:space:]]*|---)([[:space:]]|$)' /boot/grub/grub.cfg >&2
   exit 1
 fi
 echo "Kernel command line clean: $(grep -hE '^GRUB_CMDLINE_LINUX' /etc/default/grub /etc/default/grub.d/*.cfg 2>/dev/null | tr '\n' ' ')"
