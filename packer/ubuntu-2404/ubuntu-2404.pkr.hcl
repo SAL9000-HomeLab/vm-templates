@@ -18,9 +18,9 @@ source "proxmox-iso" "ubuntu-2404" {
   insecure_skip_tls_verify = var.proxmox_insecure_skip_tls_verify
   node                     = var.proxmox_node
 
-  vm_id       = var.template_id
-  vm_name     = var.template_name
-  template_name = var.template_name
+  vm_id                = var.template_id
+  vm_name              = var.template_name
+  template_name        = var.template_name
   template_description = "Ubuntu Server 24.04 LTS, built ${timestamp()}"
 
   boot_iso {
@@ -29,10 +29,10 @@ source "proxmox-iso" "ubuntu-2404" {
     unmount          = true
   }
 
-  qemu_agent = true
-  cores      = var.cores
-  cpu_type   = "host"
-  memory     = var.memory
+  qemu_agent      = true
+  cores           = var.cores
+  cpu_type        = "host"
+  memory          = var.memory
   scsi_controller = "virtio-scsi-pci"
 
   bios = "ovmf"
@@ -57,13 +57,16 @@ source "proxmox-iso" "ubuntu-2404" {
   cloud_init              = true
   cloud_init_storage_pool = var.vm_storage_pool
 
+  # Same pattern as rocky-9/rocky-10: wait for OVMF to hand off to GRUB,
+  # select the first entry and open its editor. No <esc> — if it lands
+  # before GRUB is up, OVMF opens its setup menu and the build hangs.
   boot_command = [
-    "<esc><wait>",
-    "e<wait>",
-    "<down><down><down><end>",
-    " autoinstall ds=nocloud-net\\;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ ---<f10>"
+    "<home><wait>e<wait>",
+    "<down><down><down><end><wait>",
+    " autoinstall ds=nocloud-net\\;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ ---<wait>",
+    "<f10>"
   ]
-  boot_wait    = "5s"
+  boot_wait      = "10s"
   http_directory = "http"
   http_interface = var.http_interface
   http_port_min  = 8300
@@ -80,15 +83,18 @@ build {
   sources = ["source.proxmox-iso.ubuntu-2404"]
 
   provisioner "ansible" {
-    playbook_file   = "../../ansible/playbooks/ubuntu.yml"
-    user            = var.ssh_username
-    use_proxy       = false
+    playbook_file    = "../../ansible/playbooks/ubuntu.yml"
+    user             = var.ssh_username
+    use_proxy        = false
     ansible_env_vars = ["ANSIBLE_ROLES_PATH=../../ansible/roles"]
   }
 
   provisioner "shell" {
     inline = [
       "sudo cloud-init clean --logs",
+      # Subiquity disables cloud-init networking and pins the build-time DHCP
+      # config; drop both so clones take the static config from ipconfig0.
+      "sudo rm -f /etc/cloud/cloud.cfg.d/subiquity-disable-cloudinit-networking.cfg /etc/cloud/cloud.cfg.d/90-installer-network.cfg /etc/netplan/00-installer-config.yaml /etc/netplan/50-cloud-init.yaml",
       # Lock down the build account: no password, no build key, and no SSH
       # password auth on the template or its clones. Access to clones comes
       # from keys injected by cloud-init at deploy time. The 00- drop-in wins
