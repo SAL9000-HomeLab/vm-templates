@@ -95,6 +95,13 @@ build {
       # Subiquity disables cloud-init networking and pins the build-time DHCP
       # config; drop both so clones take the static config from ipconfig0.
       "sudo rm -f /etc/cloud/cloud.cfg.d/subiquity-disable-cloudinit-networking.cfg /etc/cloud/cloud.cfg.d/90-installer-network.cfg /etc/netplan/00-installer-config.yaml /etc/netplan/50-cloud-init.yaml",
+      # Subiquity also leaves 99-installer.cfg, which sets datasource_list: [None]
+      # (the installer's own user data). With it, cloud-init on a clone ignores
+      # Proxmox's cloud-init drive: no IP, hostname or SSH keys, and, with the
+      # netplan files above gone, no network at all.
+      "sudo rm -f /etc/cloud/cloud.cfg.d/99-installer.cfg",
+      # And look only for Proxmox's cloud-init drive (NoCloud, or ConfigDrive).
+      "echo 'datasource_list: [NoCloud, ConfigDrive]' | sudo tee /etc/cloud/cloud.cfg.d/99-proxmox.cfg",
       # Lock down the build account: no password, no build key, and no SSH
       # password auth on the template or its clones. Access to clones comes
       # from keys injected by cloud-init at deploy time. The 00- drop-in wins

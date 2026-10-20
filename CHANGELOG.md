@@ -5,6 +5,10 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
 
 ## [Unreleased]
 
+- Fixed: Ubuntu 24.04 clones ignored Proxmox's cloud-init drive and came up without the IP address, hostname or SSH
+  keys proxmox-deploy set: the installer's `/etc/cloud/cloud.cfg.d/99-installer.cfg` (`datasource_list: [None]`)
+  stayed in the template. The build now removes it and limits cloud-init to Proxmox's drive (NoCloud, ConfigDrive).
+  Rebuild `tpl-ubuntu-2404` and redeploy its clones.
 - Added: `packer/rocky-10-rke2` builds `tpl-rocky-10-rke2`, a Rocky Linux 10 Kubernetes node template with RKE2
   `v1.36.5+rke2r1` (`rke2_version`) installed but not enabled. New `rke2_node` role: Rancher EL10 repositories (left
   disabled), `rke2-server` + `rke2-agent`, NFS/iSCSI clients, no swap, firewalld off, NetworkManager ignores the CNI
