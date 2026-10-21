@@ -5,6 +5,9 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
 
 ## [Unreleased]
 
+- Fixed: Ubuntu 24.04 clones disabled cloud-init (`disabled-by-generator`): the template's cloud-init drive was on IDE
+  (Packer's default), which the guest doesn't detect, so ds-identify found no NoCloud seed. The template puts it on
+  SCSI (`cloud_init_disk_type = "scsi"`), as the Rocky templates already do. Rebuild `tpl-ubuntu-2404`.
 - Fixed: the Ubuntu kernel command line cleanup left the installer's `---` separator (`GRUB_CMDLINE_LINUX_DEFAULT="---"`);
   it's removed too, and the check now looks only at `grub.cfg`'s `linux` lines (and matches `ds=nocloud-net`).
 - Fixed: Ubuntu 24.04 clones still ignored Proxmox's cloud-init drive (DHCP address, no hostname or SSH keys from

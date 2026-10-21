@@ -56,6 +56,10 @@ source "proxmox-iso" "ubuntu-2404" {
 
   cloud_init              = true
   cloud_init_storage_pool = var.vm_storage_pool
+  # Like rocky-10: the guest doesn't detect the default IDE cloud-init CD-ROM (no
+  # /dev/sr0), so ds-identify finds no NoCloud seed and cloud-init disables itself
+  # ("disabled-by-generator"). A SCSI one, on the virtio-scsi controller, is detected.
+  cloud_init_disk_type = "scsi"
 
   # Same pattern as rocky-9/rocky-10: wait for OVMF to hand off to GRUB,
   # select the first entry and open its editor. No <esc> — if it lands
