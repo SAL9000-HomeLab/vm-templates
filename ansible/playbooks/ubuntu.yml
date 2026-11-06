@@ -1,0 +1,7 @@
+---
+- name: Configure Ubuntu template
+  hosts: all
+  become: true
+  roles:
+    - linux_common
+    - qemu_guest_agent

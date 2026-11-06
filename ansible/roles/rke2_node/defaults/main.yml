@@ -1,0 +1,16 @@
+---
+# RKE2 release installed into the template (a tag from https://github.com/rancher/rke2/releases). The RPM
+# repository is chosen from its minor version, so this alone decides what gets installed. Keep it within the
+# Kubernetes versions the Rancher release you run supports.
+rke2_node_version: v1.36.5+rke2r1
+
+# RPM repository channel: stable or latest.
+rke2_node_rpm_channel: stable
+rke2_node_rpm_base_url: https://rpm.rancher.io/rke2
+rke2_node_rpm_gpg_key: https://rpm.rancher.io/public.key
+
+# Client packages for persistent storage: NFS (the NAS, csi-driver-nfs) and iSCSI (Longhorn).
+rke2_node_storage_packages:
+  - nfs-utils
+  - iscsi-initiator-utils
+  - cryptsetup

@@ -1,0 +1,19 @@
+#cloud-config
+# Example advanced per-VM user-data — see ../README.md for how to attach
+# this to a VM via cicustom. Most VMs should use the Terraform module's
+# built-in initialization block instead of a custom snippet like this.
+
+users:
+  - name: ansible
+    groups: sudo
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA... you@example.lan
+
+package_update: true
+packages:
+  - htop
+
+runcmd:
+  - [systemctl, enable, --now, qemu-guest-agent]

@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars and fill in for your environment.
+# Prefer environment variables for secrets:
+#   export TF_VAR_proxmox_api_token="terraform@pve!vm-templates=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+proxmox_endpoint  = "https://proxmox.example.lan:8006/"
+target_node       = "pve1"
+disk_datastore_id = "local-zfs"
+ssh_keys          = ["ssh-ed25519 AAAA... you@example.lan"]

@@ -1,0 +1,332 @@
+# vm-templates
+
+Builds golden VM templates on Proxmox VE with Packer + cloud-init/Autounattend +
+Ansible. This repository owns the template layer; the deployment repo is responsible
+for cloning a template and setting per-instance runtime values such as hostname, IP,
+DNS, gateway, and tags.
+
+## Template catalog contract
+
+The canonical template names used by the deployment repo are managed here and must be treated as
+stable identifiers.
+
+```yaml
+template_catalog:
+  rocky9: tpl-rocky-9
+  rocky10: tpl-rocky-10
+  rocky10_rke2: tpl-rocky-10-rke2
+  ubuntu2404: tpl-ubuntu-2404
+  windows2025_core: tpl-windows-server-2025-core
+  windows2025_desktop: tpl-windows-server-2025-desktop
+```
+
+These names are the source of truth for provisioning jobs. The deployment repo should resolve a
+template name from this catalog and then inject its own VM-specific values during deployment.
+
+## Pipeline
+
+1. **Packer** boots each OS's installer against Proxmox, drives an unattended
+   install (cloud-init `autoinstall` for Ubuntu, a kickstart file for Rocky,
+   `Autounattend.xml` for Windows), runs the **Ansible** playbook for that OS
+   over SSH/WinRM to install the QEMU guest agent and baseline config, then
+   converts the resulting VM into a Proxmox template. The Windows build
+   produces two templates from one `packer build` — Server Core and Server
+   with Desktop Experience — see
+   [packer/windows-server-2025](packer/windows-server-2025).
+2. **Deployment repo** clones a template into one or more VMs per environment,
+   passing per-VM identity (hostname, IP, DNS, SSH keys) through Proxmox's
+   built-in cloud-init support.
+
+```text
+packer/       one directory per OS, produces a Proxmox template
+ansible/      playbooks + roles run by Packer during the build
+cloud-init/   optional custom cloud-init snippets for advanced per-VM config
+terraform/    optional helper resources; the deploy repo remains the runtime orchestration layer
+```
+
+## Prerequisites
+
+- Packer >= 1.10 with the `proxmox` plugin (`packer init` installs it from
+  each build's `required_plugins` block)
+- Terraform >= 1.7
+- Ansible >= 2.15, plus `pywinrm` for the Windows playbook, installed into
+  the same Python that runs Ansible (`ansible --version` shows it). On
+  RHEL/Rocky, where `pywinrm` isn't packaged and Ansible uses the system
+  `/usr/bin/python3`, install it per-user with
+  `python3 -m pip install --user pywinrm`; with a pipx-installed Ansible,
+  use `pipx inject ansible-core pywinrm`. Without it, the Windows build
+  fails at `Gathering Facts` with `No module named 'winrm'`.
+- The Ansible collections in `ansible/requirements.yml`
+  (`community.general`, `ansible.windows`, `community.windows`) — install
+  with `ansible-galaxy collection install -r ansible/requirements.yml`.
+  Without these, the playbooks fail with `couldn't resolve module/action`
+  errors partway through a Packer build.
+- A Proxmox API token with permission to manage VMs/storage on the target
+  node (`Datacenter -> Permissions -> API Tokens`)
+- ISOs for each OS uploaded to Proxmox storage (or reachable via URL) — see
+  each `packer/<os>/variables.pkr.hcl` for the expected variable
+
+## Running Packer from WSL2
+
+Packer's `proxmox-iso` builder serves each build's kickstart/autoinstall file
+(`http_directory`) from a local HTTP server, and the booting VM must be able
+to reach it — the Linux builds default `http_interface` (a pkrvars variable)
+to `"eth0"` so Packer advertises that interface's address instead of
+auto-picking a local address, which can end up choosing something
+unreachable (a loopback alias, VPN interface, etc).
+
+By default WSL2 puts `eth0` behind NAT, so even its address isn't reachable
+from a VM on your Proxmox network — the boot will hang trying to fetch the
+kickstart/autoinstall file. Fix this once by switching WSL2 to mirrored
+networking, which shares your Windows host's real network directly:
+
+1. Create or edit `.wslconfig` in your Windows user profile
+   (`%USERPROFILE%\.wslconfig`) with:
+
+   ```ini
+   [wsl2]
+   networkingMode=mirrored
+   ```
+
+2. From PowerShell (not from inside WSL — this restarts the WSL VM):
+   `wsl --shutdown`
+3. Reopen your WSL terminal and confirm `ip addr show eth0` now shows your
+   real LAN address rather than a `172.x`/NAT-range address.
+
+Mirrored networking requires Windows 11 22H2 or later. If that's not
+available, run `packer build` from a machine that's actually on the Proxmox
+network instead of from WSL2.
+
+Mirrored mode doesn't guarantee the real NIC comes up as `eth0` — a WSL2
+instance with multiple adapters (Docker's `docker0`, a Hyper-V default
+switch, etc.) can leave `eth0` down and put the real, LAN-reachable address
+on `eth1` or another name. If `packer build` fails fast with `Failed to
+determine host IP: No host IP found`, run `ip -brief addr show` to find
+which interface actually has your LAN address, then set `http_interface` in
+your `pkrvars.hcl` to match (it's not committed, so this is per-machine).
+
+Mirrored mode exposes WSL2's HTTP server on your real NIC, but Windows
+Defender Firewall still applies its normal inbound rules to that traffic —
+a VM on another VLAN/subnet will see the connection time out even though the
+server is listening (`ss -tunlp` shows it bound) unless there's an explicit
+allow rule. The builds pin the server to `http_port_min`/`http_port_max`
+(8300-8310) so you only need to open this once. From an elevated (Admin)
+PowerShell on Windows:
+
+```powershell
+$FirewallRuleParams = @{
+  DisplayName   = "Packer HTTP (WSL2 mirrored)"
+  Direction     = "Inbound"
+  Protocol      = "TCP"
+  LocalPort     = "8300-8310"
+  RemoteAddress = "192.168.30.0/24"   # the subnet your build VMs boot on
+  Action        = "Allow"
+  Profile       = "Domain", "Private"
+}
+New-NetFirewallRule @FirewallRuleParams
+```
+
+Adjust `-RemoteAddress` if VM templates get built on other subnets/VLANs.
+
+## Credentials
+
+Nothing in this repo is meant to hold real secrets. Export Proxmox
+credentials as environment variables before running Packer or Terraform:
+
+```sh
+export PROXMOX_URL="https://proxmox.example.lan:8006/api2/json"
+export PROXMOX_API_TOKEN_ID='terraform@pve!vm-templates'  # single quotes: "!" is history expansion in zsh/bash
+export PROXMOX_API_TOKEN_SECRET="..."
+```
+
+Packer reads these via `env("...")` in each build's variables file.
+
+The Windows build also needs a build-time local Administrator password,
+which has no default and is templated into `Autounattend.xml` at build time:
+
+```sh
+export PKR_VAR_winrm_password='...'
+```
+
+Terraform reads them via the `proxmox_api_token_id` / `proxmox_api_token_secret`
+provider variables (see `terraform/environments/example/terraform.tfvars.example`).
+
+## SSH keys for Ansible provisioning
+
+Each Linux build (`rocky-9`, `rocky-10`, `ubuntu-2404`) authenticates over SSH with a
+dedicated, build-only keypair at `packer/<os>/files/ansible_build_key`
+instead of a password. This works around a
+[long-standing Packer bug](https://github.com/hashicorp/packer/issues/10639)
+where the `ansible` provisioner's auto-generated temporary key comes out
+blank/corrupt when the communicator uses password auth, causing
+`Load key "...": invalid format` partway through a build.
+
+These keypairs are gitignored (`packer/*/files/ansible_build_key*`) since a
+fresh clone won't have them. Generate your own per OS before building:
+
+```sh
+cd packer/rocky-9   # or packer/rocky-10, packer/ubuntu-2404 (rocky-10-rke2 uses rocky-10's key)
+ssh-keygen -t ed25519 -N "" -f files/ansible_build_key
+cat files/ansible_build_key.pub
+```
+
+Then paste the printed public key over the existing one in:
+
+- **rocky-9** / **rocky-10**: the `sshkey --username=ansible "..."` line in
+  `http/ks.cfg` (a separate kickstart command, not a `user` option —
+  pykickstart rejects `--sshkey` on the `user` line with `unrecognized
+  arguments`)
+- **ubuntu-2404**: the `ssh.authorized-keys` entry in `http/user-data`
+  (must be under `ssh`, not the generic `user-data.ssh_authorized_keys`
+  cloud-init passthrough — that targets cloud-init's "default user" concept,
+  which isn't reliably the `identity`-created account)
+
+The key only grants access to the VM while it's being built: each Linux
+build's final shell provisioner removes it from `authorized_keys`, locks the
+build account's password, and drops in `PasswordAuthentication no`. Committing
+the _public_ half is therefore not a secret exposure — but the private key
+stays local and gitignored regardless.
+
+Because the template ships with no usable password or key, access to cloned
+VMs must come from SSH keys injected by cloud-init at deploy time (the
+Terraform module's `ssh_keys`, or the deploy repo's `ssh_authorized_keys`).
+
+## Building a template
+
+```sh
+cd packer/ubuntu-2404
+cp example.auto.pkrvars.hcl.example example.auto.pkrvars.hcl   # edit values
+packer init .
+packer build .
+```
+
+Repeat per OS directory. Each build leaves a template on the configured
+Proxmox node named after the `template_name` variable (e.g. `tpl-ubuntu-2404`).
+`packer/rocky-10-rke2` needs `packer/rocky-10`'s build key (see [RKE2 node template](#rke2-node-template)).
+`packer/windows-server-2025` builds two templates (`tpl-windows-server-2025-core`
+and `tpl-windows-server-2025-desktop`) in a single `packer build .`.
+
+## RKE2 node template
+
+`packer/rocky-10-rke2` builds `tpl-rocky-10-rke2`: Rocky Linux 10 prepared as a Kubernetes node, with the
+`rke2-server` and `rke2-agent` RPMs of one RKE2 release (`rke2_version`, default `v1.36.5+rke2r1`) installed from
+Rancher's EL10 repositories but neither unit enabled. Every node is cloned from the same template; a clone becomes a
+server or an agent when the cluster deployment writes `/etc/rancher/rke2/config.yaml` and starts that unit.
+
+On top of the Rocky 10 build, the [`rke2_node`](ansible/roles/rke2_node) role:
+
+- installs without a swap volume (the build serves `../rocky-10/http/ks.cfg` with `autopart --noswap`, and the role
+  fails the build if swap is still there), since the kubelet won't start with swap on;
+- adds the Rancher RPM repositories disabled, so a routine `dnf upgrade` never moves a node to another RKE2
+  release (upgrades are a cluster operation; enable the repositories explicitly for them);
+- installs NFS and iSCSI clients (`nfs-utils`, `iscsi-initiator-utils`, `cryptsetup`) for NFS and Longhorn volumes,
+  and enables `iscsid`;
+- disables firewalld (RKE2 documents it as conflicting with the default Canal CNI), keeps NetworkManager away from
+  the CNI interfaces, and loads `overlay` / `br_netfilter` with the forwarding sysctls at boot;
+- puts `kubectl`, `crictl` and `ctr` on the PATH (`/etc/profile.d/rke2.sh`).
+
+The build deletes `/etc/iscsi/initiatorname.iscsi` along with the machine ID and SSH host keys, so each clone gets
+its own iSCSI initiator name on first boot. It reuses the Rocky 10 build key
+(`packer/rocky-10/files/ansible_build_key`), because the kickstart it serves carries that key's public half.
+
+Pick `rke2_version` from the Kubernetes versions your Rancher release supports, and rebuild the template to change
+it for new nodes. Existing nodes keep the release they were installed with.
+
+## Windows clones
+
+The Windows templates are generalized with sysprep and a clone answer file
+([unattend-clone.xml.pkrtpl](packer/windows-server-2025/answer_files/unattend-clone.xml.pkrtpl)),
+so a clone's first boot needs no one at the console:
+
+1. Specialize and OOBE run unattended: a random `WIN-xxxx` computer name, UTC,
+   en-US, every OOBE screen skipped, and the local Administrator keeps the build
+   password (`PKR_VAR_winrm_password`). Nothing logs on automatically.
+2. `SetupComplete.cmd` (as SYSTEM, once OOBE finishes) turns WinRM Basic auth
+   and unencrypted traffic off, deletes the clone answer file and the copy
+   Windows cached of it, and writes `C:\Windows\Setup\Scripts\SetupComplete.done`.
+3. The VM then sits at the logon screen with WinRM on 5985 (Kerberos/NTLM),
+   RDP and the QEMU guest agent running, and no network configuration beyond DHCP.
+
+Everything per VM is the deploy repo's job: proxmox-deploy waits for
+`SetupComplete.done` over the guest agent, sets the static IP, DNS and a new
+Administrator password, then renames the computer as it joins the domain.
+`sysprep.ps1` also deletes the answer file cached from the build before
+generalizing, otherwise every clone would replay the build's computer name,
+AutoLogon and WinRM commands.
+
+### How sysprep runs in the build
+
+The proxmox-iso builder shuts the VM down and converts it into a template as
+soon as the last provisioner returns, so `sysprep.ps1` only returns once the
+image is generalized (`ImageState` `IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE`):
+
+- sysprep (`/generalize /oobe /mode:vm /quit /unattend:…`) runs as a SYSTEM
+  scheduled task, not as a child of the WinRM session. Generalize resets the
+  network stack, which can drop the session, and WinRM kills every process a
+  dropped session started: sysprep died mid-generalize once, leaving a template
+  whose clones stayed the build machine (`GeneralizationState` 3, `ImageState`
+  `IMAGE_STATE_UNDEPLOYABLE`, first boot failing `sysprep /respecialize`).
+- The provisioner has `max_retries = 5`, and the script is safe to re-run: a
+  retry after a dropped session only resumes waiting.
+- If sysprep exits without generalizing, or hasn't finished after 30 minutes,
+  the build fails and prints the end of
+  `C:\Windows\System32\Sysprep\Panther\setuperr.log`. A successful build
+  logs `sysprep generalized the image (ImageState IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE)`.
+- `SetupComplete.cmd` deletes the scheduled task on each clone.
+
+## Deploying VMs from a template
+
+```sh
+cd terraform/environments/example
+cp terraform.tfvars.example terraform.tfvars   # edit values
+terraform init
+terraform plan
+terraform apply
+```
+
+## Adding a new OS
+
+Copy the closest existing `packer/<os>` directory as a starting point, add a
+matching Ansible playbook under `ansible/playbooks/`, and reference the new
+template name from `terraform/modules/proxmox-vm` consumers.
+
+## Development and CI
+
+Two workflows call reusable workflows from
+[`SAL9000-HomeLab/shared-actions`](https://github.com/SAL9000-HomeLab/shared-actions):
+
+- **Ansible CI** (`.github/workflows/ansible-ci.yml`), on every pull request:
+  `yamllint`, then `ansible-lint` using [`.ansible-lint`](.ansible-lint). ansible-lint also
+  syntax-checks the playbooks in `ansible/playbooks/`. The workflow's own syntax-check step only
+  looks for playbooks at the repository root, and there are none here.
+- **Linting Validation** (`.github/workflows/ci.yml`), on pull requests to `main`:
+  - Markdown lint (`markdownlint-cli2`) using [`.markdownlint.json`](.markdownlint.json):
+    120-column lines (code blocks and tables exempt), `_emphasis_` and `**strong**`.
+  - Link check (linkspector) using [`.linkspector.yml`](.linkspector.yml). Findings are
+    reported on the pull request. Links to this org's GitHub repos are skipped.
+  - `yamllint` again, standalone.
+
+Both YAML checks read [`.yamllint.yml`](.yamllint.yml): the default rules with 120-column
+lines (matching the editor ruler in `.vscode/settings.json`), with truthy checks skipped for
+GitHub workflows (`on:`). The file must keep the `.yml` name, because the shared `lint-yaml`
+workflow loads it by that exact path.
+
+The root [`ansible.cfg`](ansible.cfg) only sets `roles_path = ansible/roles`, so ansible-lint
+(run from the repository root) can resolve the roles. Packer sets `ANSIBLE_ROLES_PATH` itself,
+and running `ansible-playbook` from `ansible/` uses `ansible/ansible.cfg`.
+
+Run the same checks locally before opening a pull request:
+
+```sh
+python3 -m venv .venv && . .venv/bin/activate
+pip install "yamllint>=1.30" "ansible>=2.15" "ansible-lint>=6"
+ansible-galaxy collection install -r ansible/requirements.yml
+yamllint -f parsable .
+ansible-lint .
+npx markdownlint-cli2 "**/*.md" "#.venv" "#**/.terraform"
+```
+
+Project words for the VS Code spell checker live in `.vscode/cspell.json`.
+
+Add a line under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md) with each change. Pushing a
+`vX.Y.Z` tag publishes that version's section as a GitHub release.

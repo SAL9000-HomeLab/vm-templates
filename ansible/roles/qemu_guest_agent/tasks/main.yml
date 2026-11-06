@@ -1,0 +1,18 @@
+---
+- name: Install qemu-guest-agent (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: qemu-guest-agent
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Install qemu-guest-agent (RHEL/Rocky)
+  ansible.builtin.dnf:
+    name: qemu-guest-agent
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Enable and start qemu-guest-agent
+  ansible.builtin.systemd:
+    name: qemu-guest-agent
+    enabled: true
+    state: started

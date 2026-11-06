@@ -1,0 +1,21 @@
+# Not used by Packer builds — Packer generates its own ephemeral inventory
+# for the VM it's building. This file is for running playbooks against
+# already-deployed VMs (e.g. after `terraform apply`), such as re-applying
+# hardening or day-2 config changes.
+#
+# Copy to hosts.ini and fill in real hosts.
+
+[ubuntu]
+ubuntu-vm01.example.lan
+
+[rocky]
+rocky-vm01.example.lan
+
+[windows]
+win-vm01.example.lan
+
+[windows:vars]
+ansible_connection=winrm
+ansible_winrm_transport=basic
+ansible_winrm_server_cert_validation=ignore
+ansible_port=5985
