@@ -98,9 +98,15 @@ variable "disk_size" {
   default = "60G"
 }
 
-variable "cores" {
+variable "sockets" {
   type    = number
-  default = 4
+  default = 2
+}
+
+variable "cores" {
+  type        = number
+  default     = 2
+  description = "Cores per socket: the VM has sockets x cores vCPUs"
 }
 
 variable "memory" {

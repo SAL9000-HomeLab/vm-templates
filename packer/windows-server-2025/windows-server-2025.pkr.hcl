@@ -70,10 +70,12 @@ source "proxmox-iso" "windows-server-2025-core" {
   }
 
   qemu_agent      = true
+  sockets         = var.sockets
   cores           = var.cores
+  numa            = true
   cpu_type        = "host"
   memory          = var.memory
-  scsi_controller = "virtio-scsi-pci"
+  scsi_controller = "virtio-scsi-single" # required by the disk's io_thread; same vioscsi driver
   os              = "win11"
 
   # UEFI + Secure Boot + vTPM 2.0 on q35 — the hardware Windows Server 2025
@@ -97,6 +99,11 @@ source "proxmox-iso" "windows-server-2025-core" {
     # answer file loads; "virtio" would be virtio-blk, needing viostor
     # instead. Terraform clones also expect the disk at scsi0.
     type = "scsi"
+
+    cache_mode = "writeback"
+    discard    = true
+    io_thread  = true
+    ssd        = true
   }
 
   network_adapters {
@@ -160,10 +167,12 @@ source "proxmox-iso" "windows-server-2025-desktop" {
   }
 
   qemu_agent      = true
+  sockets         = var.sockets
   cores           = var.cores
+  numa            = true
   cpu_type        = "host"
   memory          = var.memory
-  scsi_controller = "virtio-scsi-pci"
+  scsi_controller = "virtio-scsi-single" # required by the disk's io_thread; same vioscsi driver
   os              = "win11"
 
   # UEFI + Secure Boot + vTPM 2.0 on q35 — the hardware Windows Server 2025
@@ -187,12 +196,23 @@ source "proxmox-iso" "windows-server-2025-desktop" {
     # answer file loads; "virtio" would be virtio-blk, needing viostor
     # instead. Terraform clones also expect the disk at scsi0.
     type = "scsi"
+
+    cache_mode = "writeback"
+    discard    = true
+    io_thread  = true
+    ssd        = true
   }
 
   network_adapters {
     bridge   = var.network_bridge
     model    = "virtio"
     firewall = false
+  }
+
+  # Desktop only: the Core template keeps the default display.
+  vga {
+    type   = "virtio"
+    memory = 512
   }
 
   cloud_init   = false
