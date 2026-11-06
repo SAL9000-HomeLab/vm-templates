@@ -21,6 +21,7 @@ source "proxmox-iso" "rocky-9" {
   vm_id                = var.template_id
   vm_name              = var.template_name
   template_name        = var.template_name
+  packer_force         = local.replace_template
   template_description = "Rocky Linux 9, built ${timestamp()}"
 
   boot_iso {

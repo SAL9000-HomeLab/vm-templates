@@ -32,6 +32,7 @@ source "proxmox-iso" "rocky-10-rke2" {
   vm_id                = var.template_id
   vm_name              = var.template_name
   template_name        = var.template_name
+  packer_force         = local.replace_template
   template_description = "Rocky Linux 10 + RKE2 ${var.rke2_version} (installed, not enabled), built ${timestamp()}"
 
   boot_iso {

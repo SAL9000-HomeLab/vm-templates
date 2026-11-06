@@ -206,6 +206,19 @@ Proxmox node named after the `template_name` variable (e.g. `tpl-ubuntu-2404`).
 `packer/windows-server-2025` builds two templates (`tpl-windows-server-2025-core`
 and `tpl-windows-server-2025-desktop`) in a single `packer build .`.
 
+### Rebuilding a template
+
+`packer build .` replaces an existing template when its VMID holds a VM template with the same name. If the VMID holds
+anything else, nothing is deleted and the build fails when it tries to create the VM. To decide this, each build reads
+the cluster's VM list before it starts, which has these effects:
+
+- The old template is deleted when the build starts, so a failed build leaves no template.
+- Proxmox refuses to delete a template that still has linked clones, and the build stops there.
+- The API token needs `VM.Audit` on the template to see it, or the build treats the VMID as holding something else.
+- The Proxmox certificate must be trusted by the machine running Packer, because that request can't skip certificate
+  checks. `proxmox_insecure_skip_tls_verify` doesn't apply to it.
+- `packer build -force` doesn't override any of this.
+
 ## RKE2 node template
 
 `packer/rocky-10-rke2` builds `tpl-rocky-10-rke2`: Rocky Linux 10 prepared as a Kubernetes node, with the
