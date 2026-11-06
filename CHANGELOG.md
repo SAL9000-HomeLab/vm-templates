@@ -5,6 +5,9 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
 
 ## [Unreleased]
 
+- Changed: `packer build .` replaces the existing template when its VMID holds a VM template with the same name.
+  Anything else on that VMID is left alone and the build fails, as before. The old template is deleted when the build
+  starts, so a failed build leaves no template.
 - Fixed: Ubuntu 24.04 clones disabled cloud-init (`disabled-by-generator`): the template's cloud-init drive was on IDE
   (Packer's default), which the guest doesn't detect, so ds-identify found no NoCloud seed. The template puts it on
   SCSI (`cloud_init_disk_type = "scsi"`), as the Rocky templates already do. Rebuild `tpl-ubuntu-2404`.

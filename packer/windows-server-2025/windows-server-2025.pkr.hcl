@@ -35,6 +35,7 @@ source "proxmox-iso" "windows-server-2025-core" {
   vm_id                = var.core_template_id
   vm_name              = var.core_template_name
   template_name        = var.core_template_name
+  packer_force         = local.replace_core_template
   template_description = "Windows Server 2025 Standard, Server Core, built ${timestamp()}"
 
   boot_iso {
@@ -128,6 +129,7 @@ source "proxmox-iso" "windows-server-2025-desktop" {
   vm_id                = var.desktop_template_id
   vm_name              = var.desktop_template_name
   template_name        = var.desktop_template_name
+  packer_force         = local.replace_desktop_template
   template_description = "Windows Server 2025 Standard, Desktop Experience, built ${timestamp()}"
 
   boot_iso {

@@ -21,6 +21,7 @@ source "proxmox-iso" "ubuntu-2404" {
   vm_id                = var.template_id
   vm_name              = var.template_name
   template_name        = var.template_name
+  packer_force         = local.replace_template
   template_description = "Ubuntu Server 24.04 LTS, built ${timestamp()}"
 
   boot_iso {
