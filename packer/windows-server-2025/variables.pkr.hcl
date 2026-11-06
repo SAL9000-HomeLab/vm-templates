@@ -114,6 +114,17 @@ variable "memory" {
   default = 4096
 }
 
+variable "viommu" {
+  type        = string
+  default     = "intel"
+  description = "Emulated IOMMU: intel, virtio, or an empty string for none"
+
+  validation {
+    condition     = contains(["intel", "virtio", ""], var.viommu)
+    error_message = "The viommu value must be intel, virtio, or an empty string."
+  }
+}
+
 variable "winrm_username" {
   type    = string
   default = "Administrator"

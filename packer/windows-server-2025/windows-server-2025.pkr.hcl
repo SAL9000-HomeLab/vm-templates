@@ -23,6 +23,10 @@ locals {
   # and any keypress halts its countdown, so only Enter gets past it. Strays
   # once Setup loads are ignored.
   boot_keypress = [join("", [for i in range(30) : "<enter><wait1s>"])]
+
+  # Proxmox stores vIOMMU in the machine setting. The plugin has no option of
+  # its own for it and sends this value to the API unchanged.
+  machine = var.viommu == "" ? "q35" : "q35,viommu=${var.viommu}"
 }
 
 source "proxmox-iso" "windows-server-2025-core" {
@@ -80,7 +84,7 @@ source "proxmox-iso" "windows-server-2025-core" {
 
   # UEFI + Secure Boot + vTPM 2.0 on q35 — the hardware Windows Server 2025
   # expects. pre_enrolled_keys loads the Microsoft keys so Secure Boot is on.
-  machine = "q35"
+  machine = local.machine
   bios    = "ovmf"
   efi_config {
     efi_storage_pool  = var.efi_storage_pool
@@ -177,7 +181,7 @@ source "proxmox-iso" "windows-server-2025-desktop" {
 
   # UEFI + Secure Boot + vTPM 2.0 on q35 — the hardware Windows Server 2025
   # expects. pre_enrolled_keys loads the Microsoft keys so Secure Boot is on.
-  machine = "q35"
+  machine = local.machine
   bios    = "ovmf"
   efi_config {
     efi_storage_pool  = var.efi_storage_pool
