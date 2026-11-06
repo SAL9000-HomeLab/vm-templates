@@ -8,6 +8,11 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
 - Changed: `packer build .` replaces the existing template when its VMID holds a VM template with the same name.
   Anything else on that VMID is left alone and the build fails, as before. The old template is deleted when the build
   starts, so a failed build leaves no template.
+- Changed: Windows Server 2025 templates use 2 sockets with 2 cores each (4 vCPUs, as before) and NUMA, and the disk uses
+  writeback cache, discard, IO thread and SSD emulation. The SCSI controller is now `virtio-scsi-single`, which IO thread
+  requires. The Desktop template uses a VirtIO-GPU display with 512 MB. Rebuild the templates to pick this up.
+- Added: Windows Server 2025 templates use an Intel vIOMMU by default, set with the `viommu` variable (`intel`, `virtio`,
+  or an empty string for none). Rebuild the templates to pick this up.
 - Fixed: Ubuntu 24.04 clones disabled cloud-init (`disabled-by-generator`): the template's cloud-init drive was on IDE
   (Packer's default), which the guest doesn't detect, so ds-identify found no NoCloud seed. The template puts it on
   SCSI (`cloud_init_disk_type = "scsi"`), as the Rocky templates already do. Rebuild `tpl-ubuntu-2404`.

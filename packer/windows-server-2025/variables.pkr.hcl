@@ -98,14 +98,31 @@ variable "disk_size" {
   default = "60G"
 }
 
-variable "cores" {
+variable "sockets" {
   type    = number
-  default = 4
+  default = 2
+}
+
+variable "cores" {
+  type        = number
+  default     = 2
+  description = "Cores per socket: the VM has sockets x cores vCPUs"
 }
 
 variable "memory" {
   type    = number
   default = 4096
+}
+
+variable "viommu" {
+  type        = string
+  default     = "intel"
+  description = "Emulated IOMMU: intel, virtio, or an empty string for none"
+
+  validation {
+    condition     = contains(["intel", "virtio", ""], var.viommu)
+    error_message = "The viommu value must be intel, virtio, or an empty string."
+  }
 }
 
 variable "winrm_username" {

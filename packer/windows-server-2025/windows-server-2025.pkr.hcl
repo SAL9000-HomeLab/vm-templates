@@ -23,6 +23,10 @@ locals {
   # and any keypress halts its countdown, so only Enter gets past it. Strays
   # once Setup loads are ignored.
   boot_keypress = [join("", [for i in range(30) : "<enter><wait1s>"])]
+
+  # Proxmox stores vIOMMU in the machine setting. The plugin has no option of
+  # its own for it and sends this value to the API unchanged.
+  machine = var.viommu == "" ? "q35" : "q35,viommu=${var.viommu}"
 }
 
 source "proxmox-iso" "windows-server-2025-core" {
@@ -71,15 +75,17 @@ source "proxmox-iso" "windows-server-2025-core" {
   }
 
   qemu_agent      = true
+  sockets         = var.sockets
   cores           = var.cores
+  numa            = true
   cpu_type        = "host"
   memory          = var.memory
-  scsi_controller = "virtio-scsi-pci"
+  scsi_controller = "virtio-scsi-single" # required by the disk's io_thread; same vioscsi driver
   os              = "win11"
 
   # UEFI + Secure Boot + vTPM 2.0 on q35 — the hardware Windows Server 2025
   # expects. pre_enrolled_keys loads the Microsoft keys so Secure Boot is on.
-  machine = "q35"
+  machine = local.machine
   bios    = "ovmf"
   efi_config {
     efi_storage_pool  = var.efi_storage_pool
@@ -98,6 +104,11 @@ source "proxmox-iso" "windows-server-2025-core" {
     # answer file loads; "virtio" would be virtio-blk, needing viostor
     # instead. Terraform clones also expect the disk at scsi0.
     type = "scsi"
+
+    cache_mode = "writeback"
+    discard    = true
+    io_thread  = true
+    ssd        = true
   }
 
   network_adapters {
@@ -162,15 +173,17 @@ source "proxmox-iso" "windows-server-2025-desktop" {
   }
 
   qemu_agent      = true
+  sockets         = var.sockets
   cores           = var.cores
+  numa            = true
   cpu_type        = "host"
   memory          = var.memory
-  scsi_controller = "virtio-scsi-pci"
+  scsi_controller = "virtio-scsi-single" # required by the disk's io_thread; same vioscsi driver
   os              = "win11"
 
   # UEFI + Secure Boot + vTPM 2.0 on q35 — the hardware Windows Server 2025
   # expects. pre_enrolled_keys loads the Microsoft keys so Secure Boot is on.
-  machine = "q35"
+  machine = local.machine
   bios    = "ovmf"
   efi_config {
     efi_storage_pool  = var.efi_storage_pool
@@ -189,12 +202,23 @@ source "proxmox-iso" "windows-server-2025-desktop" {
     # answer file loads; "virtio" would be virtio-blk, needing viostor
     # instead. Terraform clones also expect the disk at scsi0.
     type = "scsi"
+
+    cache_mode = "writeback"
+    discard    = true
+    io_thread  = true
+    ssd        = true
   }
 
   network_adapters {
     bridge   = var.network_bridge
     model    = "virtio"
     firewall = false
+  }
+
+  # Desktop only: the Core template keeps the default display.
+  vga {
+    type   = "virtio"
+    memory = 512
   }
 
   cloud_init   = false
