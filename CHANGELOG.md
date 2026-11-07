@@ -5,6 +5,12 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
 
 ## [Unreleased]
 
+- Changed: the Linux templates' disk is SCSI (`scsi0`) on a `virtio-scsi-single` controller instead of virtio-blk
+  (`virtio0`), with writeback cache, discard, IO thread and SSD emulation, as on the Windows templates. proxmox-deploy
+  expects `scsi0`, so it no longer falls back to `virtio0` with a warning. Inside the guest the disk is `/dev/sda`
+  instead of `/dev/vda`; the installers and `fstab` don't use the name. `linux_common` enables `fstrim.timer`, so freed
+  blocks go back to thin storage (Rocky 9 had it disabled). Rebuild the Linux templates to pick this up; existing VMs
+  are unchanged.
 - Changed: `packer build .` replaces the existing template when its VMID holds a VM template with the same name.
   Anything else on that VMID is left alone and the build fails, as before. The old template is deleted when the build
   starts, so a failed build leaves no template.

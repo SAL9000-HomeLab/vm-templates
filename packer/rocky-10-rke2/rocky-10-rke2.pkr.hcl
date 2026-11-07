@@ -45,7 +45,7 @@ source "proxmox-iso" "rocky-10-rke2" {
   cores           = var.cores
   cpu_type        = "host"
   memory          = var.memory
-  scsi_controller = "virtio-scsi-pci"
+  scsi_controller = "virtio-scsi-single" # required by the disk's io_thread
 
   bios = "ovmf"
   efi_config {
@@ -57,7 +57,14 @@ source "proxmox-iso" "rocky-10-rke2" {
   disks {
     disk_size    = var.disk_size
     storage_pool = var.vm_storage_pool
-    type         = "virtio"
+    # SCSI, not virtio-blk: the plugin rejects SSD emulation on virtio disks,
+    # and proxmox-deploy expects the disk at scsi0.
+    type = "scsi"
+
+    cache_mode = "writeback"
+    discard    = true # returns freed blocks to thin storage; fstrim.timer runs it
+    io_thread  = true
+    ssd        = true
   }
 
   network_adapters {
