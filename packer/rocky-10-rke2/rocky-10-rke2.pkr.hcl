@@ -80,12 +80,12 @@ source "proxmox-iso" "rocky-10-rke2" {
   cloud_init_disk_type = "scsi"
 
   boot_command = [
-    "<up><wait>e",
+    "<up><wait>e<wait>",
     "<down><down><end><wait>",
     " inst.text inst.ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ks.cfg<wait>",
     "<leftCtrlOn>x<leftCtrlOff>"
   ]
-  boot_wait = "5s"
+  boot_wait = var.boot_wait
   http_content = {
     "/ks.cfg" = local.kickstart
   }

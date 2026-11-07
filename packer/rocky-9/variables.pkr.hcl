@@ -80,3 +80,9 @@ variable "ssh_username" {
   type    = string
   default = "ansible"
 }
+
+variable "boot_wait" {
+  type        = string
+  default     = "20s"
+  description = "How long to wait for the installer's boot menu before typing boot_command. Too short and the keys land before the menu is ready (GRUB then shows a grub> prompt). The menu boots its default entry on its own after 30-60s, so err long."
+}

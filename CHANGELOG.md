@@ -5,6 +5,9 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
 
 ## [Unreleased]
 
+- Fixed: Rocky 10 builds stopped at a `grub>` prompt: the boot command was typed 5 seconds after power-on, before the
+  installer's menu was ready, so `e` never opened the editor and the `c` in `ks.cfg` opened the GRUB command line. The
+  Linux templates wait 20 seconds (new `boot_wait` variable), and Rocky 10 pauses after `e` as Rocky 9 does.
 - Changed: the Linux templates' disk is SCSI (`scsi0`) on a `virtio-scsi-single` controller instead of virtio-blk
   (`virtio0`), with writeback cache, discard, IO thread and SSD emulation, as on the Windows templates. proxmox-deploy
   expects `scsi0`, so it no longer falls back to `virtio0` with a warning. Inside the guest the disk is `/dev/sda`
