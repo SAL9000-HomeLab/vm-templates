@@ -39,6 +39,15 @@
     state: started
   when: ansible_os_family == "Debian"
 
+# The templates' disks have discard on, but freed blocks only go back to thin
+# storage when the guest trims. Ubuntu and Rocky 10 enable this weekly timer
+# already; Rocky 9 ships it disabled.
+- name: Ensure fstrim.timer is enabled and running
+  ansible.builtin.systemd:
+    name: fstrim.timer
+    enabled: true
+    state: started
+
 # SSH password auth is switched off (and the build account locked) by each
 # Packer build's final shell provisioner rather than here, so this role stays
 # safe to re-run against deployed VMs.
