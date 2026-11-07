@@ -78,7 +78,7 @@ source "proxmox-iso" "ubuntu-2404" {
     " autoinstall ds=nocloud-net\\;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ ---<wait>",
     "<f10>"
   ]
-  boot_wait      = "10s"
+  boot_wait      = var.boot_wait
   http_directory = "http"
   http_interface = var.http_interface
   http_port_min  = 8300

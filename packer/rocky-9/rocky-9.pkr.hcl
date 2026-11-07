@@ -74,7 +74,7 @@ source "proxmox-iso" "rocky-9" {
     " inst.text inst.ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ks.cfg<wait>",
     "<leftCtrlOn>x<leftCtrlOff>"
   ]
-  boot_wait      = "10s"
+  boot_wait      = var.boot_wait
   http_directory = "http"
   http_interface = var.http_interface
   http_port_min  = 8300
