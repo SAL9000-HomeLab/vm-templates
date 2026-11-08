@@ -57,7 +57,7 @@ variable "network_bridge" {
 
 variable "template_name" {
   type    = string
-  default = "tpl-windows-11-pro"
+  default = "tpl-win11-pro"
 }
 
 variable "template_id" {

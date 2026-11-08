@@ -5,7 +5,8 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
 
 ## [Unreleased]
 
-- Added: `packer/windows-11` builds `tpl-windows-11-pro`, a Windows 11 Pro template with the Windows Server 2025 Desktop
+- Fixed: `template_catalog.yml` was missing Windows 11 Pro; it is now listed as `windows11_pro: tpl-win11-pro`.
+- Added: `packer/windows-11` builds `tpl-win11-pro`, a Windows 11 Pro template with the Windows Server 2025 Desktop
   template's hardware, Ansible role and sysprep script. Its answer files enable the built-in Administrator, block
   BitLocker device encryption, set the network to Private before enabling WinRM, and turn Store app updates off for
   the build. `sysprep.ps1` removes apps installed for a user but not provisioned, on Windows 11 only, and

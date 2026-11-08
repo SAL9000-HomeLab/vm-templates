@@ -14,4 +14,4 @@ efi_storage_pool    = "local-zfs"
 network_bridge      = "vnet30"
 
 template_id   = 9004
-template_name = "tpl-windows-11-pro"
+template_name = "tpl-win11-pro"
