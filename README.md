@@ -18,7 +18,7 @@ template_catalog:
   ubuntu2404: tpl-ubuntu-2404
   windows2025_core: tpl-windows-server-2025-core
   windows2025_desktop: tpl-windows-server-2025-desktop
-  windows11_pro: tpl-windows-11-pro
+  windows11_pro: tpl-win11-pro
 ```
 
 These names are the source of truth for provisioning jobs. The deployment repo should resolve a
@@ -207,7 +207,7 @@ Proxmox node named after the `template_name` variable (e.g. `tpl-ubuntu-2404`).
 `packer/rocky-10-rke2` needs `packer/rocky-10`'s build key (see [RKE2 node template](#rke2-node-template)).
 `packer/windows-server-2025` builds two templates (`tpl-windows-server-2025-core`
 and `tpl-windows-server-2025-desktop`) in a single `packer build .`.
-`packer/windows-11` builds `tpl-windows-11-pro` (see [Windows 11 Pro template](#windows-11-pro-template)).
+`packer/windows-11` builds `tpl-win11-pro` (see [Windows 11 Pro template](#windows-11-pro-template)).
 
 ### Rebuilding a template
 
@@ -250,7 +250,7 @@ it for new nodes. Existing nodes keep the release they were installed with.
 
 ## Windows 11 Pro template
 
-`packer/windows-11` builds `tpl-windows-11-pro` with the Windows Server 2025 Desktop Experience template's hardware
+`packer/windows-11` builds `tpl-win11-pro` with the Windows Server 2025 Desktop Experience template's hardware
 (q35, UEFI with Secure Boot, TPM 2.0, Intel vIOMMU, the same disk settings), its Ansible role and its `sysprep.ps1`.
 It uses consumer or business Windows 11 media; both include the `Windows 11 Pro` edition (`image_name`). Setup uses
 Microsoft's public Windows 11 Pro KMS client key (`product_key`), which installs Pro unattended; activate it later

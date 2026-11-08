@@ -9,6 +9,7 @@ template_catalog:
   ubuntu2404: tpl-ubuntu-2404
   windows2025_core: tpl-windows-server-2025-core
   windows2025_desktop: tpl-windows-server-2025-desktop
+  windows11_pro: tpl-win11-pro
 
 # Contract:
 # - template repo creates and manages these template names
