@@ -57,6 +57,7 @@ call winrm set winrm/config/service @{AllowUnencrypted="false"}
 del /f /q "%SystemRoot%\System32\Sysprep\unattend-clone.xml" "%SystemRoot%\Panther\unattend.xml" 2>nul
 del /f /q "%SystemRoot%\Panther\Unattend\*.xml" 2>nul
 schtasks /delete /tn "$taskName" /f >nul 2>&1
+reg delete HKLM\SOFTWARE\Policies\Microsoft\WindowsStore /v AutoDownload /f >nul 2>&1
 echo %DATE% %TIME% > "%SystemRoot%\Setup\Scripts\SetupComplete.done"
 "@ | Set-Content -Path "$setupScripts\SetupComplete.cmd" -Encoding Ascii
 
@@ -65,6 +66,24 @@ echo %DATE% %TIME% > "%SystemRoot%\Setup\Scripts\SetupComplete.done"
     $winlogon = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
     Set-ItemProperty -Path $winlogon -Name AutoAdminLogon -Value '0'
     Remove-ItemProperty -Path $winlogon -Name AutoLogonCount, DefaultPassword -ErrorAction SilentlyContinue
+
+    # Windows 11 only (ProductType 1 = workstation): sysprep fails ("installed for a user, but not provisioned for
+    # all users") when the build's Administrator has an app that isn't provisioned, such as the promoted apps
+    # Windows installs at a first logon. Remove those. Inbox (System-signed), framework and non-removable packages
+    # never block sysprep and stay.
+    if ((Get-CimInstance -ClassName Win32_OperatingSystem).ProductType -eq 1) {
+        $provisioned = @(Get-AppxProvisionedPackage -Online | ForEach-Object DisplayName)
+        Get-AppxPackage -AllUsers | Where-Object {
+            $_.Name -notin $provisioned -and $_.SignatureKind -ne 'System' -and -not $_.IsFramework -and
+                -not $_.NonRemovable
+        } | ForEach-Object {
+            $package = $_.PackageFullName
+            Write-Output "Removing ${package}: installed for a user but not provisioned"
+            # A failed removal is logged, not fatal: sysprep then names the package in setuperr.log.
+            try { Remove-AppxPackage -Package $package -AllUsers -ErrorAction Stop }
+            catch { Write-Output "Could not remove ${package}: $($_.Exception.Message)" }
+        }
+    }
 
     # /mode:vm: the clones run on the same (Proxmox) virtual hardware, so skip the hardware generalization.
     $action = New-ScheduledTaskAction -Execute "$sysprepDir\sysprep.exe" `

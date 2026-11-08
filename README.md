@@ -18,6 +18,7 @@ template_catalog:
   ubuntu2404: tpl-ubuntu-2404
   windows2025_core: tpl-windows-server-2025-core
   windows2025_desktop: tpl-windows-server-2025-desktop
+  windows11_pro: tpl-windows-11-pro
 ```
 
 These names are the source of truth for provisioning jobs. The deployment repo should resolve a
@@ -33,6 +34,7 @@ template name from this catalog and then inject its own VM-specific values durin
    produces two templates from one `packer build` — Server Core and Server
    with Desktop Experience — see
    [packer/windows-server-2025](packer/windows-server-2025).
+   [packer/windows-11](packer/windows-11) builds Windows 11 Pro the same way.
 2. **Deployment repo** clones a template into one or more VMs per environment,
    passing per-VM identity (hostname, IP, DNS, SSH keys) through Proxmox's
    built-in cloud-init support.
@@ -205,6 +207,7 @@ Proxmox node named after the `template_name` variable (e.g. `tpl-ubuntu-2404`).
 `packer/rocky-10-rke2` needs `packer/rocky-10`'s build key (see [RKE2 node template](#rke2-node-template)).
 `packer/windows-server-2025` builds two templates (`tpl-windows-server-2025-core`
 and `tpl-windows-server-2025-desktop`) in a single `packer build .`.
+`packer/windows-11` builds `tpl-windows-11-pro` (see [Windows 11 Pro template](#windows-11-pro-template)).
 
 ### Rebuilding a template
 
@@ -245,10 +248,32 @@ its own iSCSI initiator name on first boot. It reuses the Rocky 10 build key
 Pick `rke2_version` from the Kubernetes versions your Rancher release supports, and rebuild the template to change
 it for new nodes. Existing nodes keep the release they were installed with.
 
+## Windows 11 Pro template
+
+`packer/windows-11` builds `tpl-windows-11-pro` with the Windows Server 2025 Desktop Experience template's hardware
+(q35, UEFI with Secure Boot, TPM 2.0, Intel vIOMMU, the same disk settings), its Ansible role and its `sysprep.ps1`.
+It uses consumer or business Windows 11 media; both include the `Windows 11 Pro` edition (`image_name`). Setup uses
+Microsoft's public Windows 11 Pro KMS client key (`product_key`), which installs Pro unattended; activate it later
+against KMS or with your own key.
+
+What differs from the Server build:
+
+- The disk defaults to 64 GB (`disk_size`): Windows 11 Setup refuses smaller disks.
+- The built-in Administrator is disabled on Windows 11 and sysprep disables it again, so both answer files enable it
+  in the specialize pass. The build and proxmox-deploy connect as it.
+- Automatic BitLocker device encryption is blocked (`PreventDeviceEncryption`); 24H2 can start it, and it stops sysprep.
+- The network is set to Private before `winrm quickconfig`, which refuses to run on a Public network.
+- Store app updates are off during the build and back on in each clone (`SetupComplete.cmd`). An app updated or
+  installed for the build's Administrator but not provisioned for all users fails sysprep; `sysprep.ps1` also
+  removes such apps on Windows 11, and the build log lists each one.
+
+Clones come up as described in [Windows clones](#windows-clones).
+
 ## Windows clones
 
 The Windows templates are generalized with sysprep and a clone answer file
-([unattend-clone.xml.pkrtpl](packer/windows-server-2025/answer_files/unattend-clone.xml.pkrtpl)),
+([unattend-clone.xml.pkrtpl](packer/windows-server-2025/answer_files/unattend-clone.xml.pkrtpl);
+[Windows 11's](packer/windows-11/answer_files/unattend-clone.xml.pkrtpl)),
 so a clone's first boot needs no one at the console:
 
 1. Specialize and OOBE run unattended: a random `WIN-xxxx` computer name, UTC,
