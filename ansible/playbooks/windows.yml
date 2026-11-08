@@ -1,5 +1,5 @@
 ---
-- name: Configure Windows Server template
+- name: Configure Windows template (Server 2025, Windows 11)
   hosts: all
   roles:
     - windows_common

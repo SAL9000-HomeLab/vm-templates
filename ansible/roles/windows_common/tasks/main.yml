@@ -13,7 +13,7 @@
     direction: in
 
 # The virtio-win ISO is only attached during the Packer build (see
-# additional_iso_files in windows-server-2025.pkr.hcl) and its drive letter
+# additional_iso_files in each Windows build) and its drive letter
 # can vary; find the installer rather than hardcoding a path or MSI
 # product code.
 - name: Locate the QEMU guest agent installer on the virtio-win media
@@ -39,7 +39,7 @@
 - name: Set power plan to High Performance
   ansible.windows.win_shell: powercfg /setactive SCHEME_MIN
 
-# Desktop Experience only: Windows 24H2/Server 2025 can start a new user's
+# Desktop Experience and Windows 11: Windows 24H2/Server 2025 can start a new user's
 # first shell before its system app packages are registered, crashing
 # explorer.exe into a black screen. Every account on a clone is new, so
 # register them at each logon (no-op once present). See the script header.
