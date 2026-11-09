@@ -5,6 +5,17 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
 
 ## [Unreleased]
 
+- Added: the Windows templates install Windows updates during the build (`win_updates`, restarting as needed and
+  searching again until none are found). Every category except Drivers and Upgrades is installed, set with
+  `windows_common_update_categories`, and optional updates are skipped. Before this the Windows templates had only
+  the updates on their ISO. Windows builds take an hour or more longer.
+- Added: the Windows templates have OpenSSH Server installed (`win_capability`), so Windows 11 clones no longer
+  download it from Windows Update when ans-features adds it. `sshd` stays disabled and never starts in the template,
+  and any SSH host keys are removed, so clones don't share host keys. `ansible/requirements.yml` needs
+  `ansible.windows` 3.6.0 or later, and the root `requirements.yml` links to it so CI installs those collections.
+- Fixed: the Ubuntu template held back updates that need new packages, including kernel updates, because
+  `linux_common` ran a "safe" `apt` upgrade. It now runs a full (`dist`) upgrade.
+
 - Fixed: `template_catalog.yml` was missing Windows 11 Pro; it is now listed as `windows11_pro: tpl-win11-pro`.
 - Added: `packer/windows-11` builds `tpl-win11-pro`, a Windows 11 Pro template with the Windows Server 2025 Desktop
   template's hardware, Ansible role and sysprep script. Its answer files enable the built-in Administrator, block

@@ -29,8 +29,9 @@ template name from this catalog and then inject its own VM-specific values durin
 1. **Packer** boots each OS's installer against Proxmox, drives an unattended
    install (cloud-init `autoinstall` for Ubuntu, a kickstart file for Rocky,
    `Autounattend.xml` for Windows), runs the **Ansible** playbook for that OS
-   over SSH/WinRM to install the QEMU guest agent and baseline config, then
-   converts the resulting VM into a Proxmox template. The Windows build
+   over SSH/WinRM to install every available update, the QEMU guest agent and
+   baseline config, then converts the resulting VM into a Proxmox template
+   (see [Updates](#updates)). The Windows build
    produces two templates from one `packer build` — Server Core and Server
    with Desktop Experience — see
    [packer/windows-server-2025](packer/windows-server-2025).
@@ -59,7 +60,7 @@ terraform/    optional helper resources; the deploy repo remains the runtime orc
   use `pipx inject ansible-core pywinrm`. Without it, the Windows build
   fails at `Gathering Facts` with `No module named 'winrm'`.
 - The Ansible collections in `ansible/requirements.yml`
-  (`community.general`, `ansible.windows`, `community.windows`) — install
+  (`community.general`, `ansible.windows` 3.6.0 or later, `community.windows`) — install
   with `ansible-galaxy collection install -r ansible/requirements.yml`.
   Without these, the playbooks fail with `couldn't resolve module/action`
   errors partway through a Packer build.
@@ -209,6 +210,21 @@ Proxmox node named after the `template_name` variable (e.g. `tpl-ubuntu-2404`).
 and `tpl-windows-server-2025-desktop`) in a single `packer build .`.
 `packer/windows-11` builds `tpl-win11-pro` (see [Windows 11 Pro template](#windows-11-pro-template)).
 
+### Updates
+
+Each build installs every update available when it runs, so a template is only as current as its last build.
+Rebuild the templates regularly, for example after each month's Patch Tuesday, so new VMs don't start out behind.
+
+- **Rocky Linux** (`rocky-9`, `rocky-10`, `rocky-10-rke2`): `linux_common` upgrades every package with `dnf`.
+- **Ubuntu**: the installer upgrades packages (`package_upgrade` in `http/user-data`), then `linux_common` runs a full
+  `apt` upgrade (`dist`), which also installs updates that need new packages, such as a new kernel.
+- **Windows** (Server 2025 and Windows 11): `windows_common` installs Windows updates, restarting as needed, and runs
+  again until a search finds none. It installs every category except Drivers (the template's drivers come from the
+  virtio-win ISO) and Upgrades (feature updates, which would change the Windows release), and skips optional updates
+  such as preview cumulative updates. The categories are `windows_common_update_categories` in
+  [the role's defaults](ansible/roles/windows_common/defaults/main.yml). An update that fails to install fails the
+  build. Updates add an hour or more to a Windows build.
+
 ### Rebuilding a template
 
 `packer build .` replaces an existing template when its VMID holds a VM template with the same name. If the VMID holds
@@ -263,6 +279,8 @@ What differs from the Server build:
   in the specialize pass. The build and proxmox-deploy connect as it.
 - Automatic BitLocker device encryption is blocked (`PreventDeviceEncryption`); 24H2 can start it, and it stops sysprep.
 - The network is set to Private before `winrm quickconfig`, which refuses to run on a Public network.
+- OpenSSH Server is installed by the build; Server 2025 includes it. On Windows 11 it is a Feature on Demand, and
+  adding it on a clone means a download from Windows Update that can take half an hour or more.
 - Store app updates are off during the build and back on in each clone (`SetupComplete.cmd`). An app updated or
   installed for the build's Administrator but not provisioned for all users fails sysprep; `sysprep.ps1` also
   removes such apps on Windows 11, and the build log lists each one.
@@ -351,7 +369,9 @@ workflow loads it by that exact path.
 
 The root [`ansible.cfg`](ansible.cfg) only sets `roles_path = ansible/roles`, so ansible-lint
 (run from the repository root) can resolve the roles. Packer sets `ANSIBLE_ROLES_PATH` itself,
-and running `ansible-playbook` from `ansible/` uses `ansible/ansible.cfg`.
+and running `ansible-playbook` from `ansible/` uses `ansible/ansible.cfg`. The root
+`requirements.yml` is a symlink to `ansible/requirements.yml`, because the shared workflow
+installs collections only from the root file.
 
 Run the same checks locally before opening a pull request:
 

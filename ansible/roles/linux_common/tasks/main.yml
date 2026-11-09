@@ -3,13 +3,14 @@
   community.general.timezone:
     name: UTC
 
+# A golden image should ship fully patched, so upgrading everything is the point. "dist" rather than "safe":
+# a safe upgrade holds back updates that need new packages, and every kernel update does.
 - name: Update apt cache and upgrade packages (Debian/Ubuntu)
   ansible.builtin.apt:
     update_cache: true
-    upgrade: safe
+    upgrade: dist
   when: ansible_os_family == "Debian"
 
-# A golden image should ship fully patched, so upgrading everything is the point.
 - name: Upgrade packages (RHEL/Rocky)  # noqa: package-latest
   ansible.builtin.dnf:
     name: "*"

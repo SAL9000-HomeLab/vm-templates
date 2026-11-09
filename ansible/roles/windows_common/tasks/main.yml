@@ -39,6 +39,37 @@
 - name: Set power plan to High Performance
   ansible.windows.win_shell: powercfg /setactive SCHEME_MIN
 
+# OpenSSH Server comes with Windows Server 2025. On Windows 11 it is a Feature on Demand that Windows downloads from
+# Windows Update when it is added, which can take half an hour or more on each clone. Installing it here means every
+# Windows template has it. It is installed before the updates below, which then patch it too.
+- name: Install OpenSSH Server
+  ansible.windows.win_capability:
+    name: OpenSSH.Server~~~~0.0.1.0
+    state: present
+  register: windows_common_openssh
+
+- name: Restart to finish installing OpenSSH Server
+  ansible.windows.win_reboot:
+  when: windows_common_openssh.reboot_required
+
+# sshd generates its host keys the first time it starts, and every clone would then share them. Keep it disabled in
+# the template, as Server 2025 ships it, and remove any keys. ans-features enables and starts it on each VM.
+- name: Keep sshd stopped and disabled in the template
+  ansible.windows.win_service:
+    name: sshd
+    start_mode: disabled
+    state: stopped
+
+- name: Remove any SSH host keys
+  ansible.windows.win_shell: |
+    $keys = Get-ChildItem -Path "$env:ProgramData\ssh\ssh_host_*" -ErrorAction SilentlyContinue
+    if ($keys) {
+        $keys | Remove-Item -Force
+        'removed'
+    }
+  register: windows_common_ssh_host_keys
+  changed_when: "'removed' in windows_common_ssh_host_keys.stdout"
+
 # Desktop Experience and Windows 11: Windows 24H2/Server 2025 can start a new user's
 # first shell before its system app packages are registered, crashing
 # explorer.exe into a black screen. Every account on a clone is new, so
@@ -78,3 +109,21 @@
     state: present
     enabled: true
   when: windows_common_shell_packages.stat.exists
+
+# Templates ship with every update available when they are built. win_updates restarts Windows when an update needs
+# it and keeps searching, and the loop runs it again until a search finds nothing, so updates that only appear after
+# others are installed (a servicing stack update, then the cumulative update) are included. A failed update fails
+# the build rather than producing a template that is not fully patched. Windows must not be left waiting for a
+# restart either, because sysprep refuses to run then.
+- name: Install Windows updates
+  ansible.windows.win_updates:
+    category_names: "{{ windows_common_update_categories }}"
+    skip_optional: true
+    reboot: true
+    reboot_timeout: 3600
+  register: windows_common_updates
+  until:
+    - windows_common_updates is not failed
+    - windows_common_updates.found_update_count == 0
+  retries: 5
+  delay: 30
