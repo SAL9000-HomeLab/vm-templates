@@ -114,6 +114,20 @@ variable "memory" {
   default = 4096
 }
 
+variable "boot_key_seconds" {
+  type        = number
+  default     = 90
+  description = "How long the build taps Enter after power-on to catch the \"Press any key to boot from CD or DVD\" prompt, in seconds"
+
+  # The prompt appears when firmware init finishes, which varies with Secure Boot, TPM, vIOMMU and host load, and
+  # lasts about 5 seconds. Tapping must stop before Setup's first restart (several minutes in), or a keypress
+  # would boot the install media again.
+  validation {
+    condition     = var.boot_key_seconds >= 10 && var.boot_key_seconds <= 180
+    error_message = "The boot_key_seconds value must be between 10 and 180."
+  }
+}
+
 variable "viommu" {
   type        = string
   default     = "intel"

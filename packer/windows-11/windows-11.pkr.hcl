@@ -17,8 +17,8 @@ locals {
   winrm_password_xml = replace(replace(replace(var.winrm_password, "&", "&amp;"), "<", "&lt;"), ">", "&gt;")
 
   # OVMF shows "Press any key to boot from CD or DVD" for only ~5s, at a time that varies with firmware init. Tap
-  # Enter once a second for ~30s so one lands inside that window (see windows-server-2025.pkr.hcl).
-  boot_keypress = [join("", [for i in range(30) : "<enter><wait1s>"])]
+  # Enter once a second for boot_key_seconds so one lands inside that window (see windows-server-2025.pkr.hcl).
+  boot_keypress = [join("", [for i in range(var.boot_key_seconds) : "<enter><wait1s>"])]
 
   # Proxmox stores vIOMMU in the machine setting; the plugin sends this value to the API unchanged.
   machine = var.viommu == "" ? "q35" : "q35,viommu=${var.viommu}"

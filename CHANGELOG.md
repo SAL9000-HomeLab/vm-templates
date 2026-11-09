@@ -5,6 +5,16 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
 
 ## [Unreleased]
 
+- Fixed: Windows builds could stop at "BdsDxe: No bootable option or device was found" when firmware init took
+  longer than the 30 seconds the build tapped Enter for, so the "Press any key to boot from CD or DVD" prompt timed
+  out. The Windows Server 2025 and Windows 11 builds tap for 90 seconds by default, set with `boot_key_seconds`.
+- Fixed: Windows Server 2025 Desktop builds could wait forever for the QEMU guest agent. The VirtIO guest tools
+  (drivers and agent) and the build's WinRM setup ran as FirstLogonCommands, which never run when explorer.exe
+  crashes at the first logon (the 24H2/2025 first-logon bug, Desktop Experience only). They now run from a build-time
+  `SetupComplete.cmd` (`scripts/SetupComplete-build.cmd`, copied from the answer file CD in the specialize pass),
+  which Windows Setup runs as SYSTEM before the logon screen, with output in
+  `C:\Windows\Temp\vm-templates-setupcomplete.log`. The Server 2025 answer files no longer log on automatically.
+  `sysprep.ps1` replaces the file with the clones' `SetupComplete.cmd`, as before.
 - Added: the Windows templates install Windows updates during the build (`win_updates`, restarting as needed and
   searching again until none are found). Every category except Drivers and Upgrades is installed, set with
   `windows_common_update_categories`, and optional updates are skipped. Before this the Windows templates had only

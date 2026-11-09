@@ -17,12 +17,12 @@ locals {
 
   # OVMF shows "Press any key to boot from CD or DVD" for only ~5s, and when
   # it appears depends on how long firmware init takes (Secure Boot + TPM on
-  # q35 is slow and varies). Tap a key once a second for ~30s so one is
-  # guaranteed to land inside that window. It must be Enter, not space: the
+  # q35 is slow and varies; 30s was not always enough). Tap a key once a
+  # second for boot_key_seconds (90 by default) so one lands inside that window. It must be Enter, not space: the
   # VLK media's Boot Manager then shows a "Windows Setup [EMS Enabled]" menu,
   # and any keypress halts its countdown, so only Enter gets past it. Strays
   # once Setup loads are ignored.
-  boot_keypress = [join("", [for i in range(30) : "<enter><wait1s>"])]
+  boot_keypress = [join("", [for i in range(var.boot_key_seconds) : "<enter><wait1s>"])]
 
   # Proxmox stores vIOMMU in the machine setting. The plugin has no option of
   # its own for it and sends this value to the API unchanged.
@@ -59,6 +59,8 @@ source "proxmox-iso" "windows-server-2025-core" {
         product_key    = var.product_key
         winrm_password = local.winrm_password_xml
       })
+      # Installs the guest tools and enables WinRM; see the script header.
+      "SetupComplete.cmd" = file("scripts/SetupComplete-build.cmd")
     }
     cd_label         = "cidata"
     iso_storage_pool = var.iso_storage_pool
@@ -158,6 +160,8 @@ source "proxmox-iso" "windows-server-2025-desktop" {
         product_key    = var.product_key
         winrm_password = local.winrm_password_xml
       })
+      # Installs the guest tools and enables WinRM; see the script header.
+      "SetupComplete.cmd" = file("scripts/SetupComplete-build.cmd")
     }
     cd_label         = "cidata"
     iso_storage_pool = var.iso_storage_pool
