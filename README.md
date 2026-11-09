@@ -368,7 +368,8 @@ GitHub workflows (`on:`). The file must keep the `.yml` name, because the shared
 workflow loads it by that exact path.
 
 The root [`ansible.cfg`](ansible.cfg) only sets `roles_path = ansible/roles`, so ansible-lint
-(run from the repository root) can resolve the roles. Packer sets `ANSIBLE_ROLES_PATH` itself,
+(run from the repository root) can resolve the roles. The root `requirements.yml` is a symlink to
+`ansible/requirements.yml`, because the shared workflow installs collections only from the root file. Packer sets `ANSIBLE_ROLES_PATH` itself,
 and running `ansible-playbook` from `ansible/` uses `ansible/ansible.cfg`.
 
 Run the same checks locally before opening a pull request:

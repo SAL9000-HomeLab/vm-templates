@@ -12,7 +12,7 @@ pushing a `vX.Y.Z` tag; the release workflow publishes the matching section.
 - Added: the Windows templates have OpenSSH Server installed (`win_capability`), so Windows 11 clones no longer
   download it from Windows Update when ans-features adds it. `sshd` stays disabled and never starts in the template,
   and any SSH host keys are removed, so clones don't share host keys. `ansible/requirements.yml` needs
-  `ansible.windows` 3.6.0 or later.
+  `ansible.windows` 3.6.0 or later, and the root `requirements.yml` links to it so CI installs those collections.
 - Fixed: the Ubuntu template held back updates that need new packages, including kernel updates, because
   `linux_common` ran a "safe" `apt` upgrade. It now runs a full (`dist`) upgrade.
 
