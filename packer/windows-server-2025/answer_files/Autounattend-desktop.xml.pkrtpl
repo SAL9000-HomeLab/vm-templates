@@ -14,8 +14,15 @@
     drive letters in Windows PE aren't fixed, so every driver path is listed
     for D:-G:; the windowsPE pass skips paths that don't exist. There is
     deliberately no offlineServicing driver pass — the rest of the VirtIO
-    drivers and the guest agent come from virtio-win-guest-tools.exe in
-    FirstLogonCommands.
+    drivers and the guest agent come from virtio-win-guest-tools.exe, which
+    SetupComplete.cmd installs.
+  - The specialize pass copies SetupComplete.cmd from this CD (the build's
+    scripts/SetupComplete-build.cmd) to C:\Windows\Setup\Scripts. Windows
+    Setup runs it as SYSTEM before the logon screen: it installs the VirtIO
+    guest tools and enables WinRM and RDP for the build. There are no
+    FirstLogonCommands or AutoLogon: on Desktop Experience, explorer.exe can
+    crash at the first logon (24H2/2025 bug), and then FirstLogonCommands
+    never ran and the build waited forever for the guest agent.
   - This is a Packer template (templatefile): $${winrm_password} is filled in
     from the winrm_password variable at build time and written to the build
     CD as Autounattend.xml. Never commit a real password here.
@@ -162,6 +169,20 @@
     <component name="Microsoft-Windows-SQMApi" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
       <CEIPEnabled>0</CEIPEnabled>
     </component>
+    <component name="Microsoft-Windows-Deployment" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <RunSynchronous>
+        <!-- SetupComplete.cmd is on this answer file's CD, whose drive letter
+             isn't fixed (SATA CDs), so probe. -->
+        <RunSynchronousCommand wcm:action="add">
+          <Order>1</Order>
+          <Path>cmd /c if not exist %WINDIR%\Setup\Scripts mkdir %WINDIR%\Setup\Scripts</Path>
+        </RunSynchronousCommand>
+        <RunSynchronousCommand wcm:action="add">
+          <Order>2</Order>
+          <Path>cmd /c for %i in (D E F G) do @if exist %i:\SetupComplete.cmd copy /y %i:\SetupComplete.cmd %WINDIR%\Setup\Scripts\SetupComplete.cmd</Path>
+        </RunSynchronousCommand>
+      </RunSynchronous>
+    </component>
   </settings>
 
   <settings pass="oobeSystem">
@@ -185,50 +206,6 @@
           <PlainText>true</PlainText>
         </AdministratorPassword>
       </UserAccounts>
-
-      <AutoLogon>
-        <Password>
-          <Value>${winrm_password}</Value>
-          <PlainText>true</PlainText>
-        </Password>
-        <Enabled>true</Enabled>
-        <Username>Administrator</Username>
-        <LogonCount>10</LogonCount>
-      </AutoLogon>
-
-      <FirstLogonCommands>
-        <!-- VirtIO guest tools: NetKVM + other drivers and the QEMU guest
-             agent, which Packer needs to discover the VM's IP for WinRM.
-             The virtio ISO's drive letter isn't fixed (SATA CDs), so probe. -->
-        <SynchronousCommand wcm:action="add">
-          <Order>1</Order>
-          <CommandLine>cmd /c for %i in (D E F G) do @if exist %i:\virtio-win-guest-tools.exe start /wait %i:\virtio-win-guest-tools.exe /install /passive /norestart</CommandLine>
-        </SynchronousCommand>
-        <SynchronousCommand wcm:action="add">
-          <Order>2</Order>
-          <CommandLine>cmd /c winrm quickconfig -quiet</CommandLine>
-        </SynchronousCommand>
-        <SynchronousCommand wcm:action="add">
-          <Order>3</Order>
-          <CommandLine>cmd /c winrm set winrm/config/service/auth @{Basic="true"}</CommandLine>
-        </SynchronousCommand>
-        <SynchronousCommand wcm:action="add">
-          <Order>4</Order>
-          <CommandLine>cmd /c winrm set winrm/config/service @{AllowUnencrypted="true"}</CommandLine>
-        </SynchronousCommand>
-        <SynchronousCommand wcm:action="add">
-          <Order>5</Order>
-          <CommandLine>cmd /c netsh advfirewall firewall add rule name="WinRM-HTTP" dir=in localport=5985 protocol=TCP action=allow</CommandLine>
-        </SynchronousCommand>
-        <SynchronousCommand wcm:action="add">
-          <Order>6</Order>
-          <CommandLine>cmd /c netsh advfirewall firewall set rule group="Remote Desktop" new enable=yes</CommandLine>
-        </SynchronousCommand>
-        <SynchronousCommand wcm:action="add">
-          <Order>7</Order>
-          <CommandLine>powershell -Command "Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0"</CommandLine>
-        </SynchronousCommand>
-      </FirstLogonCommands>
     </component>
   </settings>
 

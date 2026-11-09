@@ -59,6 +59,8 @@ source "proxmox-iso" "windows-server-2025-core" {
         product_key    = var.product_key
         winrm_password = local.winrm_password_xml
       })
+      # Installs the guest tools and enables WinRM; see the script header.
+      "SetupComplete.cmd" = file("scripts/SetupComplete-build.cmd")
     }
     cd_label         = "cidata"
     iso_storage_pool = var.iso_storage_pool
@@ -158,6 +160,8 @@ source "proxmox-iso" "windows-server-2025-desktop" {
         product_key    = var.product_key
         winrm_password = local.winrm_password_xml
       })
+      # Installs the guest tools and enables WinRM; see the script header.
+      "SetupComplete.cmd" = file("scripts/SetupComplete-build.cmd")
     }
     cd_label         = "cidata"
     iso_storage_pool = var.iso_storage_pool
