@@ -1,0 +1,14 @@
+---
+# Windows Update categories installed during the build: every patch category except Drivers and Upgrades. Drivers
+# come from the virtio-win ISO, and Windows Update could replace them with other versions. Upgrades are feature
+# updates, which would move the template to another Windows release. Optional updates, such as preview cumulative
+# updates, are skipped (win_updates skip_optional).
+windows_common_update_categories:
+  - Critical Updates
+  - Definition Updates
+  - Feature Packs
+  - Security Updates
+  - Service Packs
+  - Tools
+  - Update Rollups
+  - Updates
